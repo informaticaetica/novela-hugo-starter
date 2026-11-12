@@ -615,41 +615,102 @@ const Q3 = QUADRI.map((q, i) => {
 let vicinoD = null;
 const lampo = new THREE.PointLight(0xffffff, 0, 9); scena.add(lampo);
 
-/* modelli: guardano verso +X, poi vengono ruotati secondo la direzione */
-function arto(m, x, y, z, w, l, d, padre) { const perno = new THREE.Group(); perno.position.set(x, y, z); padre.add(perno);
-  pezzo(new THREE.BoxGeometry(w, l, d), m, 0, -l / 2, 0, perno); return perno; }
+/* modelli articolati: guardano verso +X (la destra del personaggio è +Z), poi vengono ruotati secondo la direzione.
+   Ogni arto è una catena di perni: ruotando un perno attorno a Z l'arto oscilla avanti (+) e indietro (-). */
+function perno(x, y, z, padre) { const g = new THREE.Group(); g.position.set(x, y, z); padre.add(g); return g; }
+function osso(m, r0, r1, l, padre) { return pezzo(new THREE.CylinderGeometry(r0, r1, l, 12), m, 0, -l / 2, 0, padre); }
+function palla(m, r, x, y, z, padre, sx, sy, sz) { const o = pezzo(new THREE.SphereGeometry(r, 16, 12), m, x, y, z, padre); if (sx) o.scale.set(sx, sy, sz); return o; }
+
 function modStruzzo(col) {
-  const s = new THREE.Group(), nero = mat(0x1d1d22, { shininess: 25 }), pelle = mat(0xe8b9a0), bianco = mat(0xf5f1e6);
-  pezzo(new THREE.SphereGeometry(.36, 20, 14), nero, 0, 1.0, 0, s).scale.set(1.3, .88, .92);
-  pezzo(new THREE.SphereGeometry(.2, 14, 10), bianco, -.46, 1.06, 0, s).scale.set(1, 1.15, .9);
-  pezzo(new THREE.SphereGeometry(.16, 12, 8), mat(0x34343c), .05, .98, .27, s).scale.set(1.6, .8, .5);
-  pezzo(new THREE.SphereGeometry(.16, 12, 8), mat(0x34343c), .05, .98, -.27, s).scale.set(1.6, .8, .5);
-  pezzo(new THREE.CylinderGeometry(.045, .065, .8, 10), pelle, .44, 1.5, 0, s).rotation.z = -.3;
-  pezzo(new THREE.SphereGeometry(.105, 14, 10), pelle, .58, 1.92, 0, s).scale.set(1.2, .9, .9);
-  pezzo(new THREE.ConeGeometry(.045, .22, 8), mat(0xc98b3a), .76, 1.9, 0, s).rotation.z = -Math.PI / 2;
-  [-1, 1].forEach(k => pezzo(new THREE.SphereGeometry(.025, 8, 8), mat(0x050505, { shininess: 100 }), .63, 1.96, k * .085, s));
-  const lana = mat(col, { emissive: col, emissiveIntensity: .45 });
-  const sc = pezzo(new THREE.TorusGeometry(.09, .045, 8, 18), lana, .4, 1.38, 0, s); sc.rotation.x = Math.PI / 2; sc.rotation.y = .3;
-  pezzo(new THREE.BoxGeometry(.07, .3, .09), lana, .36, 1.22, .1, s);
-  s.userData.gambe = [-1, 1].map(k => { const g = arto(pelle, .02, .78, k * .13, .06, .76, .06, s); pezzo(new THREE.BoxGeometry(.2, .04, .1), pelle, .07, -.76, 0, g); return g; });
+  const s = new THREE.Group(), u = s.userData, r = rng(Math.floor(Math.random() * 1e4) + 1);
+  const nero = mat(0x17171b, { shininess: 30, specular: 0x333340 }), grigio = mat(0x2c2c34, { shininess: 20 }), bianco = mat(0xf2ede0, { shininess: 8 });
+  const pelle = mat(0xe2b09a, { shininess: 18 }), zampa = mat(0xcf9f8c, { shininess: 25 }), corno = mat(0x4a3b33, { shininess: 50 });
+  const lana = mat(col, { emissive: col, emissiveIntensity: .5 });
+  const c = u.corpo = perno(0, 1.05, 0, s);
+  const busto = perno(0, 0, 0, c); busto.rotation.z = .1;
+  palla(nero, .36, 0, .06, 0, busto, 1.38, .92, .96);
+  palla(grigio, .2, .34, .0, 0, busto, 1.1, 1, 1.1);                                   // petto
+  for (let k = 0; k < 16; k++) { const a = r() * 6.28, b = -.1 + r() * 1.3;          // ciuffi di piume sul dorso
+    palla(k % 3 ? nero : grigio, .13, Math.cos(b) * -.34 * Math.abs(Math.cos(a)) + .05, .06 + Math.sin(b) * .3, Math.sin(a) * .3, busto, 1.5, .55, .9).rotation.z = -.4 + r() * .5; }
+  for (let k = -2; k <= 2; k++) { const p = palla(bianco, .13, -.5 - Math.abs(k) * -.02, .2 + (2 - Math.abs(k)) * .05, k * .09, busto, 1.7, .5, .62); p.rotation.z = -.75; p.rotation.y = k * .22; }  // coda
+  u.ali = [-1, 1].map(k => { const a = perno(.05, .14, k * .31, busto);
+    palla(nero, .24, -.05, -.08, k * .03, a, 1.55, .72, .3);
+    for (let j = 0; j < 4; j++) palla(bianco, .09, -.3 - j * .05, -.2 + j * .035, k * .04, a, 1.7, .5, .4).rotation.z = .5;
+    return a; });
+  // zampe: coscia, tibia, tarso, due dita
+  u.gambe = [-1, 1].map(k => { const anca = perno(-.02, -.1, k * .15, c);
+    palla(nero, .15, .03, -.03, 0, anca, 1, 1.25, .95); osso(zampa, .085, .055, .38, anca);
+    const gin = perno(0, -.38, 0, anca); palla(zampa, .058, 0, 0, 0, gin); osso(zampa, .05, .034, .42, gin);
+    const cav = perno(0, -.42, 0, gin); palla(zampa, .042, 0, 0, 0, cav); osso(zampa, .034, .03, .4, cav);
+    const piede = perno(0, -.4, 0, cav);
+    pezzo(new THREE.BoxGeometry(.24, .045, .075), zampa, .1, 0, 0, piede); pezzo(new THREE.BoxGeometry(.13, .04, .05), zampa, .05, 0, k * .06, piede).rotation.y = -k * .5;
+    pezzo(new THREE.ConeGeometry(.02, .07, 6), corno, .24, 0, 0, piede).rotation.z = -Math.PI / 2;
+    return { anca, gin, cav, piede }; });
+  // collo snodato in sei segmenti, con la sciarpa
+  u.collo = []; let padre = perno(.4, .2, 0, busto);
+  for (let k = 0; k < 6; k++) { const seg = k ? perno(0, .14, 0, padre) : padre; u.collo.push(seg);
+    pezzo(new THREE.CylinderGeometry(.062 - k * .005, .07 - k * .005, .15, 10), pelle, 0, .07, 0, seg);
+    if (k === 0) palla(grigio, .11, 0, -.02, 0, seg, 1, .8, 1);
+    if (k === 2) { const sc = pezzo(new THREE.TorusGeometry(.085, .042, 8, 18), lana, 0, .06, 0, seg); sc.rotation.x = Math.PI / 2;
+      pezzo(new THREE.BoxGeometry(.06, .3, .1), lana, .03, -.1, .09, seg).rotation.z = .25; palla(lana, .05, .05, .04, .09, seg); }
+    padre = seg; }
+  const t = u.testa = perno(0, .14, 0, padre);
+  palla(pelle, .085, .04, .04, 0, t, 1.3, .9, .92);
+  for (let k = 0; k < 7; k++) pezzo(new THREE.ConeGeometry(.012, .07, 4), grigio, -.03 + k * .012, .12, (k % 3 - 1) * .03, t).rotation.z = .5 - k * .1;   // ciuffo
+  const becco = mat(0xd9a05a, { shininess: 40 });
+  palla(becco, .06, .15, .035, 0, t, 1.7, .32, .85); palla(mat(0xc48a48), .05, .14, .012, 0, t, 1.5, .25, .7);
+  [-1, 1].forEach(k => { palla(mat(0xffffff, { shininess: 80 }), .036, .075, .07, k * .062, t); palla(mat(0x0a0a0a, { shininess: 120, specular: 0xffffff }), .024, .092, .072, k * .082, t);
+    palla(pelle, .04, .068, .088, k * .058, t, 1, .45, 1); });                                // palpebre
+  u.seme = r() * 10; u.and = 0; u.panico = 0;
   return s;
 }
+
 function modPersona(divisa, scuro, eLadro) {
-  const p = new THREE.Group(), stoffa = mat(divisa), buia = mat(scuro), pelle = mat(0xf0c8a0);
-  const busto = eLadro ? mat(0xffffff, { map: trama(64, 64, (x) => { for (let k = 0; k < 8; k++) { x.fillStyle = k % 2 ? '#e9e9e9' : '#18181c'; x.fillRect(0, k * 8, 64, 8); } }) }) : stoffa;
-  pezzo(new THREE.BoxGeometry(.28, .62, .46), busto, 0, 1.12, 0, p);
-  pezzo(new THREE.SphereGeometry(.16, 16, 12), pelle, 0, 1.6, 0, p);
-  p.userData.gambe = [-1, 1].map(k => arto(buia, 0, .82, k * .12, .17, .82, .18, p));
-  p.userData.braccia = [-1, 1].map(k => arto(eLadro ? buia : stoffa, 0, 1.4, k * .3, .12, .58, .12, p));
-  if (eLadro) { pezzo(new THREE.SphereGeometry(.172, 16, 10, 0, 7, 0, 1.75), buia, 0, 1.61, 0, p);
-    pezzo(new THREE.BoxGeometry(.08, .07, .3), buia, .13, 1.62, 0, p);
-    const b = new THREE.Group(); b.position.set(0, 2.2, 0); p.add(b);
-    p.userData.bottino = b; p.userData.corniceB = pezzo(new THREE.BoxGeometry(.08, .8, 1.06), mat(0xffffff), 0, 0, 0, b);
-    p.userData.telaB = new THREE.Mesh(new THREE.PlaneGeometry(.94, .7), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: .25 }));
-    p.userData.telaB.rotation.y = -Math.PI / 2; p.userData.telaB.position.x = -.045; b.add(p.userData.telaB); }
-  else { pezzo(new THREE.CylinderGeometry(.175, .175, .11, 16), buia, 0, 1.74, 0, p); pezzo(new THREE.BoxGeometry(.17, .03, .24), buia, .2, 1.7, 0, p);
-    pezzo(new THREE.BoxGeometry(.02, .5, .05), mat(0xd9b45a, { shininess: 80 }), .145, 1.14, 0, p);
-    pezzo(new THREE.CylinderGeometry(.035, .045, .22, 8), mat(0x999999, { shininess: 80 }), .22, .86, .3, p).rotation.z = Math.PI / 2; }
+  const p = new THREE.Group(), u = p.userData;
+  const stoffa = mat(divisa, { shininess: 8 }), buia = mat(scuro, { shininess: 14 }), pelle = mat(0xe8b796, { shininess: 14 }), cuoio = mat(0x0d0d10, { shininess: 70, specular: 0x666666 });
+  const ottone = mat(0xd9b45a, { shininess: 100, specular: 0xfff0b0 });
+  const maglia = eLadro ? mat(0xffffff, { map: trama(64, 64, (x) => { for (let k = 0; k < 8; k++) { x.fillStyle = k % 2 ? '#ecebe6' : '#17171b'; x.fillRect(0, k * 8, 64, 8); } }) }) : stoffa;
+  const c = u.corpo = perno(0, .93, 0, p);                                   // bacino
+  palla(buia, .17, 0, .02, 0, c, .78, .7, 1.05);
+  const busto = u.busto = perno(0, .08, 0, c);
+  pezzo(new THREE.CylinderGeometry(.215, .165, .5, 16), maglia, 0, .27, 0, busto).scale.set(.7, 1, 1.08);
+  palla(maglia, .2, 0, .5, 0, busto, .72, .42, 1.2);                          // spalle
+  pezzo(new THREE.CylinderGeometry(.168, .168, .06, 16), cuoio, 0, .03, 0, busto).scale.set(.72, 1, 1.08);   // cintura
+  pezzo(new THREE.CylinderGeometry(.055, .06, .1, 10), pelle, 0, .6, 0, busto);
+  const t = u.testa = perno(0, .66, 0, busto);
+  palla(pelle, .125, 0, .11, 0, t, .95, 1.1, .92); palla(pelle, .025, .12, .09, 0, t);
+  [-1, 1].forEach(k => { palla(pelle, .03, 0, .1, k * .115, t, .6, 1, .5); palla(mat(0x1a1a1a, { shininess: 90 }), .014, .105, .135, k * .045, t); });
+  if (eLadro) {
+    pezzo(new THREE.SphereGeometry(.134, 16, 10, 0, 7, 0, 1.5), buia, 0, .13, 0, t);                     // berretto di lana
+    pezzo(new THREE.TorusGeometry(.125, .022, 8, 20), buia, 0, .15, 0, t).rotation.x = Math.PI / 2;
+    pezzo(new THREE.CylinderGeometry(.127, .127, .045, 16, 1, true), mat(0x0a0a0c, { side: THREE.DoubleSide }), 0, .13, 0, t).scale.set(.97, 1, .94);   // mascherina
+  } else {
+    pezzo(new THREE.SphereGeometry(.13, 16, 10, 0, 7, 0, 1.45), mat(0x3a2a1e), -.012, .12, 0, t);        // capelli
+    pezzo(new THREE.CylinderGeometry(.135, .13, .07, 18), buia, 0, .225, 0, t); pezzo(new THREE.CylinderGeometry(.165, .14, .04, 18), buia, 0, .275, 0, t);
+    pezzo(new THREE.CylinderGeometry(.15, .15, .012, 18, 1, false, -Math.PI / 2 + 1, Math.PI - 2), cuoio, .05, .195, 0, t).rotation.y = Math.PI / 2;   // visiera
+    palla(ottone, .028, .13, .235, 0, t, .4, 1, 1);
+    for (let k = 0; k < 4; k++) palla(ottone, .016, .152 - k * .004, .44 - k * .1, 0, busto);            // bottoni
+    palla(ottone, .03, .135, .4, .1, busto, .3, 1, 1);                                                   // distintivo
+    [-1, 1].forEach(k => pezzo(new THREE.BoxGeometry(.11, .02, .1), buia, 0, .575, k * .2, busto));      // spalline
+  }
+  u.braccia = [-1, 1].map(k => { const sp = perno(0, .5, k * .255, busto);
+    palla(maglia, .062, 0, 0, 0, sp); osso(maglia, .058, .048, .3, sp);
+    const gom = perno(0, -.3, 0, sp); palla(maglia, .048, 0, 0, 0, gom); osso(eLadro ? maglia : stoffa, .046, .038, .26, gom);
+    palla(eLadro ? cuoio : pelle, .046, 0, -.29, 0, gom, 1, 1.15, .8);
+    return { sp, gom }; });
+  u.gambe = [-1, 1].map(k => { const anca = perno(0, -.02, k * .095, c);
+    osso(buia, .085, .065, .44, anca);
+    const gin = perno(0, -.44, 0, anca); palla(buia, .064, 0, 0, 0, gin); osso(buia, .06, .048, .42, gin);
+    pezzo(new THREE.BoxGeometry(.25, .075, .1), cuoio, .055, -.445, 0, gin); palla(cuoio, .05, .15, -.435, 0, gin, 1.1, .8, 1);
+    return { anca, gin }; });
+  if (eLadro) { const b = u.bottino = perno(.05, .98, 0, busto);
+    u.corniceB = pezzo(new THREE.BoxGeometry(.07, .8, 1.06), mat(0xffffff), 0, 0, 0, b);
+    u.telaB = new THREE.Mesh(new THREE.PlaneGeometry(.94, .7), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: .25 }));
+    u.telaB.rotation.y = -Math.PI / 2; u.telaB.position.x = -.04; b.add(u.telaB); }
+  else { const pila = perno(0, -.3, 0, u.braccia[1].gom);                                              // torcia nella mano destra
+    pezzo(new THREE.CylinderGeometry(.026, .026, .2, 10), cuoio, 0, 0, 0, pila); pezzo(new THREE.CylinderGeometry(.045, .028, .07, 12), mat(0x8c8c94, { shininess: 100 }), 0, -.13, 0, pila);
+    const lente = new THREE.Mesh(new THREE.CircleGeometry(.04, 14), new THREE.MeshBasicMaterial({ color: 0xfff6d8 })); lente.rotation.x = Math.PI / 2; lente.position.y = -.167; pila.add(lente); }
+  u.and = 0; u.eLadro = eLadro;
   return p;
 }
 let dinamici = null, camere = [];
@@ -670,10 +731,44 @@ function costruisci() {
 const muro = (px, py) => { const tx = Math.floor(px / T), ty = Math.floor(py / T);
   return tx < 0 || ty < 0 || tx >= MW || ty >= MH || mappa[ty][tx] === 1; };
 const versoAng = (a, b, k) => { let d = (b - a) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return a + d * k; };
-function posa(m, o, ang, corsa) {
-  m.position.set(o.x * U, 0, o.y * U); m.rotation.y = versoAng(m.rotation.y, -ang, .25);
-  const a = Math.sin(o.fase) * corsa; m.userData.gambe[0].rotation.z = a; m.userData.gambe[1].rotation.z = -a;
-  if (m.userData.braccia) { m.userData.braccia[0].rotation.z = -a * .7; m.userData.braccia[1].rotation.z = a * .7; }
+function andatura(m, o) {                                  // 0 = fermo, 1 = in movimento (sfumato)
+  const u = m.userData, ora = performance.now(), dt = Math.max(.001, (ora - (u.t0 || ora)) / 1000); u.t0 = ora;
+  const v = u.px === undefined ? 0 : Math.hypot(o.x - u.px, o.y - u.py) / dt; u.px = o.x; u.py = o.y;
+  u.vel = (u.vel || 0) * .75 + Math.min(400, v) * .25; u.and += ((u.vel > 12 ? 1 : 0) - u.and) * .2; return u.and;
+}
+function posaPersona(m, o, ang, giro) {
+  const u = m.userData, w = andatura(m, o), f = o.fase, t = performance.now() / 1000;
+  m.position.set(o.x * U, 0, o.y * U); m.rotation.y = giro ? versoAng(m.rotation.y, -ang, .25) : -ang;
+  const carico = u.eLadro && o.q.inMano, ruba = u.eLadro && o.stato === 'ruba';
+  const furtivo = u.eLadro && o.stato === 'va' ? 1 : 0, corsa = u.eLadro && o.stato === 'fugge' ? 1 : 0;
+  const A = (.5 + corsa * .3) * w, piega = furtivo * .35;
+  u.gambe.forEach((g, k) => { const ph = f + k * Math.PI, sw = Math.max(0, Math.cos(ph));
+    g.anca.rotation.z = A * Math.sin(ph) + piega; g.gin.rotation.z = -(.12 + .95 * sw) * w * (1 + corsa * .4) - piega * 1.9; });
+  u.corpo.position.y = .93 - Math.abs(Math.sin(f)) * .035 * w - piega * .12 + Math.sin(t * 1.8) * .004;
+  u.busto.rotation.z = -(.05 * w + furtivo * .32 + corsa * .22); u.busto.rotation.y = Math.sin(f) * .12 * w;
+  u.testa.rotation.z = furtivo * .25 + corsa * .12; u.testa.rotation.y = furtivo ? Math.sin(t * 1.3) * .5 : 0;
+  u.braccia.forEach((b, k) => { const ph = f + k * Math.PI; b.sp.rotation.x = 0;
+    if (carico) { b.sp.rotation.z = 2.75; b.sp.rotation.x = (k ? -.2 : .2); b.gom.rotation.z = .25; }
+    else if (ruba) { b.sp.rotation.z = 1.9 + Math.sin(t * 9 + k * 2) * .18; b.gom.rotation.z = .5; }
+    else if (!u.eLadro && k === 1) { b.sp.rotation.z = .3 + Math.sin(f * 2) * .02 * w; b.gom.rotation.z = 1.2; }          // braccio con la torcia
+    else { b.sp.rotation.z = -A * .85 * Math.sin(ph) + furtivo * .4; b.gom.rotation.z = .18 + .3 * w + furtivo * .7 + corsa * .8; } });
+}
+const COLLO = [-1.0, .2, .3, .28, .17, .1], COLLO_TESO = [-1.25, .05, .1, .1, .1, .1];
+function posaStruzzo(m, s) {
+  const u = m.userData, w = andatura(m, s), f = s.fase, t = performance.now() / 1000 + u.seme;
+  const corre = Math.min(1, Math.max(0, (u.vel - 70) / 60));
+  u.panico += ((s.scatto > 0 ? 1 : 0) - u.panico) * .2;
+  m.position.set(s.x * U, 0, s.y * U); m.rotation.y = versoAng(m.rotation.y, -s.ang, .2);
+  const A = (.38 + corre * .3) * w, becca = (1 - w) * Math.max(0, Math.sin(t * .35) - .9) * 9;      // ogni tanto becca per terra
+  u.gambe.forEach((g, k) => { const ph = f + k * Math.PI, sw = Math.max(0, Math.cos(ph));
+    g.anca.rotation.z = .7 + A * Math.sin(ph); g.gin.rotation.z = -1.3 - (.55 + corre * .3) * sw * w; g.cav.rotation.z = .75 + (.75 + corre * .2) * sw * w - A * Math.sin(ph) * .3;
+    g.piede.rotation.z = -(g.anca.rotation.z + g.gin.rotation.z + g.cav.rotation.z) - sw * w * .7; });
+  u.corpo.position.y = 1.05 + Math.abs(Math.sin(f)) * .05 * w - becca * .05; u.corpo.rotation.z = -corre * .12 + Math.sin(f * 2) * .02 * w;
+  const dondolo = Math.sin(f * 2) * .1 * w, guarda = (1 - w) * Math.sin(t * .6) * .6; let somma = 0;
+  u.collo.forEach((seg, k) => { seg.rotation.z = COLLO[k] + (COLLO_TESO[k] - COLLO[k]) * corre + (k === 0 ? dondolo - becca * .9 : -dondolo * .25 - becca * .24);
+    seg.rotation.y = k > 1 ? guarda / 4 : 0; somma += seg.rotation.z; });
+  u.testa.rotation.z = -somma * .85 - becca * .5;
+  u.ali.forEach((a, k) => { a.rotation.x = (k ? -1 : 1) * (corre * .3 + u.panico * (.9 + Math.sin(t * 26) * .3)); });
 }
 let composer = null, passoScena = null, finale = null;
 try {
@@ -708,12 +803,12 @@ function disegna() {
   DECOR.forEach(d => { if (d.arte && d.o.arte !== d.arte) { vesti(d.o, d.arte); d.o.gph.visible = true; }
     d.o.glow.material.opacity = d === vicinoD ? .85 : .45; });
 
-  struzzi.forEach((s, i) => { const m = M.struzzi[i]; m.visible = !s.q.rientrato; if (m.visible) { posa(m, s, s.ang, .55); m.position.y = Math.abs(Math.sin(s.fase)) * .04; } });
-  custodi.forEach((c, i) => { const m = M.custodi[i], dx = Math.cos(c.ang), dz = Math.sin(c.ang); posa(m, c, c.ang, .5); m.rotation.y = -c.ang;
-    const t = m.userData.torcia; t.position.set(c.x * U + dx * .35, 1.3, c.y * U + dz * .35); t.target.position.set(c.x * U + dx * 7, .7, c.y * U + dz * 7);
+  struzzi.forEach((s, i) => { const m = M.struzzi[i]; m.visible = !s.q.rientrato; if (m.visible) posaStruzzo(m, s); });
+  custodi.forEach((c, i) => { const m = M.custodi[i], dx = Math.cos(c.ang), dz = Math.sin(c.ang); posaPersona(m, c, c.ang, false);
+    const t = m.userData.torcia; t.position.set(c.x * U + dx * .5 - dz * .26, 1.14, c.y * U + dz * .5 + dx * .26); t.target.position.set(c.x * U + dx * 7, .75, c.y * U + dz * 7);
     m.userData.alone.position.set(c.x * U - dx * .5, 2.1, c.y * U - dz * .5); });
   M.ladro.visible = !!ladro;
-  if (ladro) { posa(M.ladro, ladro, ladro.ang || 0, .5); const u = M.ladro.userData; u.bottino.visible = ladro.q.inMano;
+  if (ladro) { posaPersona(M.ladro, ladro, ladro.ang || 0, true); const u = M.ladro.userData; u.bottino.visible = ladro.q.inMano;
     if (ladro.q.inMano) { u.corniceB.material.color.set(ladro.q.colore); const t = Q3[ladro.q.i].tela.material.map;
       if (u.telaB.material.map !== t) { u.telaB.material.map = u.telaB.material.emissiveMap = t; u.telaB.material.needsUpdate = true; } } }
   const ul = lampi[lampi.length - 1];
