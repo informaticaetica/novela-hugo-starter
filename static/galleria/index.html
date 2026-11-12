@@ -219,7 +219,9 @@ let ac, uscita;
 function audio() {
   if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
   const A = window.AudioContext || window.webkitAudioContext; if (!A) return;
-  ac = new A(); uscita = ac.createGain(); uscita.gain.value = salva.muto ? 0 : 1; uscita.connect(ac.destination);
+  ac = new A(); uscita = ac.createGain(); uscita.gain.value = salva.muto ? 0 : 1;
+  const lim = ac.createDynamicsCompressor(); lim.threshold.value = -10; lim.ratio.value = 8; uscita.connect(lim); lim.connect(ac.destination);
+  try { mus = musicaInit(); } catch (e) { mus = null; }
 }
 function suono(f0, f1, dur, tipo, vol, ritardo) {
   if (!ac) return;
@@ -238,17 +240,99 @@ const SFX = {
   vinto:   () => [523, 659, 784, 1047].forEach((f, i) => suono(f, f, .28, 'triangle', .18, i * .16)),
   perso:   () => [392, 330, 262, 196].forEach((f, i) => suono(f, f, .34, 'triangle', .16, i * .22)),
 };
-// musica notturna: arpeggio lento in la minore, più teso quando c'è il ladro
-const ARP = [220, 261.6, 329.6, 440, 392, 329.6, 261.6, 246.9, 174.6, 220, 261.6, 349.2, 329.6, 261.6, 220, 196];
-let battuta = 0;
+/* ---------- musica: synth psichedelico anni '80 ----------
+   Composizione originale, generata nota per nota: pad con phaser, arpeggio con eco ping-pong,
+   basso sincopato, batteria elettronica con rullante riverberato e una voce solista con vibrato.
+   Giro di 16 battute in quattro sezioni (apertura, pieno, assolo, sospensione); con i ladri in sala si fa più tesa. */
+const BPM = 104, SEDICESIMO = 60 / BPM / 4;
+const ACCORDI = [[45, [0, 3, 7, 10, 14]], [41, [0, 4, 7, 11, 14]], [38, [0, 3, 7, 10, 14]], [46, [0, 4, 7, 11, 18]],     // La m9, Fa maj9, Re m9, Si♭ maj7♯11
+                 [45, [0, 3, 7, 10, 14]], [48, [0, 4, 7, 11, 14]], [51, [0, 4, 7, 11, 14]], [40, [0, 5, 7, 10, 14]]];    // La m9, Do maj9, Mi♭ maj9, Mi 7sus
+const CANTO = [4, 2, 3, 1, 2, 3, 4, 2, 0, 2, 1, 3, 4, 3, 2, 0], SALTI = [0, 4, 2, 6, 1, 5, 3, 7, 2, 6, 4, 8, 3, 7, 5, 9];
+const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+let mus = null;
+function musicaInit() {
+  const m = {}, G = v => { const g = ac.createGain(); g.gain.value = v; return g; };
+  const F = (tipo, f, q) => { const b = ac.createBiquadFilter(); b.type = tipo; b.frequency.value = f; if (q) b.Q.value = q; return b; };
+  const pan = v => { if (!ac.createStereoPanner) return G(1); const p = ac.createStereoPanner(); p.pan.value = v; return p; };
+  m.bus = G(.45); m.bus.connect(uscita);
+  const nb = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; m.rumore = nb;
+  // riverbero ampio
+  const len = Math.floor(ac.sampleRate * 2.8), ir = ac.createBuffer(2, len, ac.sampleRate);
+  for (let c = 0; c < 2; c++) { const x = ir.getChannelData(c); for (let i = 0; i < len; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+  m.riv = ac.createConvolver(); m.riv.buffer = ir; const rg = G(.3); m.riv.connect(rg); rg.connect(m.bus);
+  // eco ping-pong sull'ottavo puntato
+  const dl = ac.createDelay(1.5), dr = ac.createDelay(1.5), fb = G(.44), tono = F('lowpass', 2400), pl = pan(-.75), pr = pan(.75);
+  dl.delayTime.value = dr.delayTime.value = SEDICESIMO * 3;
+  m.eco = G(1); m.eco.connect(dl); dl.connect(pl); pl.connect(m.bus); dl.connect(dr); dr.connect(pr); pr.connect(m.bus); dr.connect(tono); tono.connect(fb); fb.connect(dl);
+  const er = G(.25); dr.connect(er); er.connect(m.riv);
+  // phaser: quattro filtri passa-tutto mossi da un'onda lentissima
+  m.ph = G(1); let n = m.ph; const lfo = ac.createOscillator(), lg = G(650); lfo.frequency.value = .09; lfo.connect(lg); lfo.start();
+  for (let k = 0; k < 4; k++) { const ap = F('allpass', 800 + k * 420, .9); lg.connect(ap.frequency); n.connect(ap); n = ap; }
+  const mix = G(.75); n.connect(mix); m.ph.connect(mix); mix.connect(m.bus); const pr2 = G(.35); mix.connect(pr2); pr2.connect(m.riv);
+  // filtro del pad che si apre e si chiude
+  m.pad = F('lowpass', 950, 4); const lfo2 = ac.createOscillator(), lg2 = G(620); lfo2.frequency.value = .055; lfo2.connect(lg2); lg2.connect(m.pad.frequency); lfo2.start(); m.pad.connect(m.ph);
+  m.batt = G(1); m.batt.connect(m.bus);
+  m.prossimo = ac.currentTime + .15; m.passo = 0; m.voce = 0;
+  return m;
+}
+function voce(dest, tipo, f, t, dur, vol, att, rel, stona) {
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = tipo; o.frequency.setValueAtTime(f, t); if (stona) o.detune.value = stona;
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + att); g.gain.setTargetAtTime(.0001, t + dur, rel / 3);
+  o.connect(g); (Array.isArray(dest) ? dest : [dest]).forEach(x => g.connect(x)); o.start(t); o.stop(t + dur + rel * 2); return { o, g };
+}
+function colpo(t, tipoF, f, q, dur, vol, dest) {                       // rumore filtrato: piatti, rullante, soffi
+  const s = ac.createBufferSource(), b = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = mus.rumore; s.loop = true;
+  b.type = tipoF; b.frequency.setValueAtTime(f, t); b.Q.value = q;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(b); b.connect(g); dest.forEach(x => g.connect(x)); s.start(t, Math.random() * .5); s.stop(t + dur + .05); return b;
+}
+function tamburo(t, f0, f1, dur, vol) { const k = voce(mus.batt, 'sine', f0, t, dur * .6, vol, .003, dur); k.o.frequency.exponentialRampToValueAtTime(f1, t + dur); }
+function suonaPasso(n, t) {
+  const m = mus, s = n % 16, bar = Math.floor(n / 16) % 16, ci = bar >> 1, sez = Math.floor(n / 256) % 4, teso = stato === 'gioco' && ladri.length > 0;
+  const root = ACCORDI[ci][0], iv = ci === 7 && bar % 2 ? [0, 4, 7, 10, 13] : ACCORDI[ci][1];
+  // pad: quattro voci, due denti di sega scordati ciascuna
+  if (s === 0 && (ci === 7 || bar % 2 === 0)) { const dur = SEDICESIMO * 16 * (ci === 7 ? 1 : 2) - .2;
+    for (let k = 0; k < 4; k++) [-8, 8].forEach(c => voce(m.pad, 'sawtooth', hz(root + 12 + iv[k]), t, dur, .028, .7, 1.4, c)); }
+  // arpeggio
+  if (sez !== 3 && (s * 7 + bar * 3) % 11 !== 0) {
+    const toni = iv.concat(iv.map(x => x + 12)), fig = bar % 4, i = fig === 0 ? s % 10 : fig === 1 ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4, 3][s] : fig === 2 ? SALTI[s] : (s * 3 + bar) % 10;
+    const f = hz(root + 24 + toni[i]), fl = ac.createBiquadFilter(), acc = s % 4 === 0 ? 1.35 : 1, send = ac.createGain();
+    fl.type = 'lowpass'; fl.Q.value = 9; fl.frequency.setValueAtTime(600 + 3200 * acc * (teso ? 1.3 : 1), t); fl.frequency.exponentialRampToValueAtTime(420, t + .2);
+    send.gain.value = .55; fl.connect(m.ph); fl.connect(send); send.connect(m.eco);
+    voce(fl, 'sawtooth', f, t, .07, .075 * acc, .004, .2, -6); voce(fl, 'square', f, t, .07, .03 * acc, .004, .2, 7); }
+  // basso sincopato
+  const colpiBasso = teso ? [0, 2, 4, 6, 8, 10, 12, 14] : sez === 0 ? [] : sez === 3 ? [0, 8] : [0, 3, 6, 8, 10, 11, 14];
+  if (colpiBasso.includes(s)) { const su = (s === 8 || s === 11) && sez !== 3 ? 12 : 0, f = hz(root - 12 + su), fl = ac.createBiquadFilter(), lungo = sez === 3 && !teso ? 7 : 1.5;
+    fl.type = 'lowpass'; fl.Q.value = 5; fl.frequency.setValueAtTime(900, t); fl.frequency.exponentialRampToValueAtTime(160, t + .25); fl.connect(m.bus);
+    voce(fl, 'sawtooth', f, t, SEDICESIMO * lungo, .16, .005, .12); voce(m.bus, 'sine', f / 2, t, SEDICESIMO * lungo, .14, .005, .12); }
+  // batteria elettronica
+  const pieno = sez === 1 || sez === 2 || teso;
+  if (pieno ? s % 4 === 0 : s === 0 || (sez === 0 && s === 8)) tamburo(t, 150, 44, .28, pieno ? .5 : .32);
+  if (pieno && (s === 4 || s === 12)) { colpo(t, 'bandpass', 1900, .7, .24, .3, [m.batt, m.riv]); tamburo(t, 210, 150, .09, .18); }
+  if (sez !== 0 || teso) { if (s % 2 === 0 && s !== 14) colpo(t, 'highpass', 8200, .5, .045, s % 4 === 2 ? .085 : .05, [m.batt]);
+    else if (sez === 2 && s % 2 === 1) colpo(t, 'highpass', 9000, .5, .03, .03, [m.batt]);
+    if (s === 14) colpo(t, 'highpass', 7200, .5, .2, .075, [m.batt]); }
+  if (bar === 15 && s >= 10 && sez !== 0) tamburo(t, 260 - (s - 10) * 26, 120 - (s - 10) * 10, .2, .3);       // rullata di tom
+  if (bar === 14 && s === 0) colpo(t, 'bandpass', 300, 2.5, SEDICESIMO * 32, .05, [m.ph, m.riv]).frequency.exponentialRampToValueAtTime(6500, t + SEDICESIMO * 30);   // soffio che sale
+  // voce solista con portamento e vibrato
+  if ((sez === 2 || sez === 3) && [0, 6, 8, 12].includes(s) && !(sez === 3 && s === 6)) {
+    const k = [0, 6, 8, 12].indexOf(s), f = hz(root + 36 + iv[CANTO[(bar * 4 + k) % 16] % iv.length] - (k === 3 && bar % 4 === 3 ? 12 : 0)), dur = SEDICESIMO * (s === 12 ? 3.5 : s === 0 ? 5 : 2.2);
+    const send = ac.createGain(); send.gain.value = .7; send.connect(m.eco);
+    const v = voce([m.ph, send, m.riv], 'triangle', m.voce || f, t, dur, .085, .03, .35), v2 = voce([send], 'sawtooth', m.voce || f, t, dur, .018, .03, .35, 9);
+    [v, v2].forEach(x => x.o.frequency.exponentialRampToValueAtTime(f, t + .07));
+    const vib = ac.createOscillator(), vg = ac.createGain(); vib.frequency.value = 5.6; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * .012, t + .35);
+    vib.connect(vg); vg.connect(v.o.frequency); vib.start(t); vib.stop(t + dur + .8);
+    if (bar % 8 === 7 && s === 12) v.o.frequency.exponentialRampToValueAtTime(f / 2, t + dur + .5);                   // la nota si scioglie verso il basso
+    m.voce = f; }
+  // con i ladri in sala: un battito acuto e inquieto, mezzo tono sopra
+  if (teso && s % 2 === 1) voce([m.eco], 'square', hz(root + 36 + (s % 4 === 1 ? 0 : 1)), t, .03, .022, .003, .08);
+}
 setInterval(() => {
-  if (!ac || stato !== 'gioco') return;
-  const f = ARP[battuta % ARP.length];
-  suono(f, f, .9, 'sine', .045);
-  if (battuta % 4 === 0) suono(f / 4, f / 4, 1.5, 'triangle', .07);
-  if (ladri.length) suono(55, 55, .12, 'square', .035, .21);
-  battuta++;
-}, 420);
+  if (!ac || !mus || ac.state !== 'running') return;
+  mus.bus.gain.setTargetAtTime(stato === 'gioco' ? .5 : stato === 'vista' ? .28 : .36, ac.currentTime, .5);
+  if (mus.prossimo < ac.currentTime - .3) mus.prossimo = ac.currentTime + .05;           // la scheda era in pausa: riparti da qui
+  while (mus.prossimo < ac.currentTime + .3) { suonaPasso(mus.passo++, mus.prossimo); mus.prossimo += SEDICESIMO; }
+}, 90);
 function muto() { salva.muto = !salva.muto; registra(); if (uscita) uscita.gain.value = salva.muto ? 0 : 1; $('bMuto').textContent = salva.muto ? '♪̸' : '♪'; }
 
 /* ---------- lo struzzo ---------- */
@@ -1040,6 +1124,7 @@ $('bLuci').onclick = accendi; $('bMuto').onclick = () => { audio(); muto(); };
 $('apriCat').onclick = $('apriCat2').onclick = apriCatalogo; $('chiudiCat').onclick = () => $('catalogo').classList.remove('on');
 if (salva.muto) $('bMuto').textContent = '♪̸';
 disegnaMenu();
+addEventListener('pointerdown', audio); addEventListener('keydown', audio);      // la musica parte al primo gesto
 
 prepara();
 requestAnimationFrame(ciclo);
