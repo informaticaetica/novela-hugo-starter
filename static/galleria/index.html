@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Notte in galleria</title>
+<style>
+  :root { --oro:#d9b45a; --carta:#f3ecdc; --notte:#0b0b17; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--notte); color:var(--carta);
+    font-family: Georgia, "Times New Roman", serif; overflow:hidden; }
+  #wrap { position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  #hud { width:min(100vw, calc((100vh - 46px) * 1.5)); display:flex; justify-content:space-between; align-items:center;
+    padding:8px 14px; font-size:15px; letter-spacing:.04em; }
+  #hud b { color:var(--oro); font-weight:normal; }
+  canvas#game { width:min(100vw, calc((100vh - 46px) * 1.5)); aspect-ratio:3/2; display:block; background:#000; touch-action:none; }
+  .velo { position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(6,6,14,.86); padding:16px; text-align:center; z-index:5; }
+  .velo.on { display:flex; }
+  .scheda { max-width:560px; }
+  h1 { font-size:clamp(28px,6vw,46px); margin:0 0 6px; color:var(--oro); font-weight:normal; font-style:italic; }
+  p { line-height:1.5; margin:10px 0; }
+  .piccolo { font-size:13px; opacity:.7; }
+  button { font:inherit; font-size:17px; margin-top:14px; padding:10px 28px; color:var(--notte); background:var(--oro);
+    border:0; border-radius:2px; cursor:pointer; }
+  button:hover { filter:brightness(1.1); }
+  #vista .scheda { max-width:min(92vw,820px); }
+  #tela { max-width:100%; max-height:66vh; border:10px solid var(--oro); box-shadow:0 0 60px rgba(217,180,90,.35); background:#111; }
+  #targa { display:inline-block; margin-top:14px; padding:8px 18px; background:var(--carta); color:#222; font-size:14px; text-align:left; }
+  #targa i { display:block; font-size:17px; }
+  #guarda { position:absolute; bottom:18px; left:50%; transform:translateX(-50%); display:none; z-index:3; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span>Struzzi rientrati: <b id="conta">0 / 6</b></span>
+    <span id="msg" class="piccolo"></span>
+    <span>Ore <b id="ora">00:00</b></span>
+  </div>
+  <canvas id="game" width="960" height="640"></canvas>
+  <button id="guarda">Guarda il quadro</button>
+
+  <div class="velo on" id="intro"><div class="scheda">
+    <h1>Notte in galleria</h1>
+    <p>Sei il custode di notte. È mezzanotte e gli struzzi sono <em>usciti dai quadri</em>:
+       gironzolano per le sale come se niente fosse.</p>
+    <p>Gli struzzi scappano da te: spingili davanti al quadro con la cornice dello stesso colore
+       della loro sciarpa. Riportali tutti dentro prima delle <b style="color:var(--oro)">06:00</b>.</p>
+    <p class="piccolo">Muoviti con le frecce o WASD (su telefono: tieni premuto dove vuoi andare).<br>
+       Vicino a un quadro premi E o Spazio per guardarlo da vicino.</p>
+    <button id="via">Inizia il turno</button>
+  </div></div>
+
+  <div class="velo" id="fine"><div class="scheda">
+    <h1 id="fineTitolo"></h1>
+    <p id="fineTesto"></p>
+    <button id="ancora">Rigioca</button>
+  </div></div>
+
+  <div class="velo" id="vista"><div class="scheda">
+    <canvas id="tela" width="800" height="600"></canvas><br>
+    <div id="targa"><i id="tTitolo"></i><span id="tNota"></span></div><br>
+    <button id="chiudi">Torna in sala</button>
+  </div></div>
+</div>
+
+<script>
+/* ============================================================
+   I QUADRI
+   Per ogni quadro il gioco prova a caricare l'immagine indicata
+   in "file" (cartella static/galleria/quadri/). Se il file non
+   c'è, viene dipinto un quadro segnaposto generato dal codice.
+   Metti qui solo riproduzioni che hai il diritto di usare.
+   ============================================================ */
+const QUADRI = [
+  { titolo: 'Quadro I',   nota: '', file: 'quadri/1.jpg', colore: '#e63946' },
+  { titolo: 'Quadro II',  nota: '', file: 'quadri/2.jpg', colore: '#f4a261' },
+  { titolo: 'Quadro III', nota: '', file: 'quadri/3.jpg', colore: '#2a9d8f' },
+  { titolo: 'Quadro IV',  nota: '', file: 'quadri/4.jpg', colore: '#4895ef' },
+  { titolo: 'Quadro V',   nota: '', file: 'quadri/5.jpg', colore: '#c77dff' },
+  { titolo: 'Quadro VI',  nota: '', file: 'quadri/6.jpg', colore: '#ffd60a' },
+];
+const DURATA = 180;           // secondi reali per la notte (00:00 → 06:00)
+
+/* ---------- mappa ---------- */
+const T = 40, MW = 24, MH = 16;
+const BANCHI = [[4,7],[4,8],[11,4],[12,4],[11,11],[12,11],[19,7],[19,8]];
+const mappa = [];
+for (let y = 0; y < MH; y++) { mappa.push([]);
+  for (let x = 0; x < MW; x++) {
+    let v = 0;
+    if (x === 0 || y === 0 || x === MW-1 || y === MH-1) v = 1;
+    if ((x === 8 || x === 15) && y !== 7 && y !== 8) v = 1;
+    mappa[y].push(v);
+  } }
+BANCHI.forEach(([x,y]) => mappa[y][x] = 2);
+const STANZE = [{x0:1,x1:7},{x0:9,x1:14},{x0:16,x1:22}];
+const CENTRI = [180, 480, 780];
+
+const solido = (px,py) => { const tx = Math.floor(px/T), ty = Math.floor(py/T);
+  return tx < 0 || ty < 0 || tx >= MW || ty >= MH || mappa[ty][tx] !== 0; };
+const urta = (x,y,r) => solido(x-r,y-r) || solido(x+r,y-r) || solido(x-r,y+r) || solido(x+r,y+r);
+function muovi(o, dx, dy) {           // ritorna true se si è mosso liberamente
+  let libero = true;
+  if (!urta(o.x+dx, o.y, o.r)) o.x += dx; else libero = false;
+  if (!urta(o.x, o.y+dy, o.r)) o.y += dy; else libero = false;
+  return libero;
+}
+
+/* ---------- utilità ---------- */
+const $ = id => document.getElementById(id);
+const cv = $('game'), g = cv.getContext('2d');
+const buio = document.createElement('canvas'); buio.width = cv.width; buio.height = cv.height;
+const gb = buio.getContext('2d');
+function rng(seed) { let s = seed * 9301 + 49297; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+
+/* ---------- lo struzzo ---------- */
+function struzzo(c, x, y, k, verso, fase, sciarpa, sagoma) {
+  c.save(); c.translate(x, y); c.scale(k * verso, k); c.lineCap = 'round'; c.lineJoin = 'round';
+  if (sagoma) { c.setLineDash([4,4]); c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; }
+  const a = Math.sin(fase) * 7;
+  // zampe
+  c.strokeStyle = sagoma ? c.strokeStyle : '#e8b9a0'; c.lineWidth = sagoma ? 1.5 : 2.6;
+  c.beginPath(); c.moveTo(-3,-14); c.lineTo(-3 + a, 0); c.lineTo(1 + a, 0);
+  c.moveTo(3,-14); c.lineTo(3 - a, 0); c.lineTo(7 - a, 0); c.stroke();
+  // corpo
+  c.beginPath(); c.ellipse(0,-22,14,10,-0.15,0,7);
+  if (sagoma) c.stroke(); else { c.fillStyle = '#1d1d22'; c.fill();
+    c.fillStyle = '#f5f1e6'; c.beginPath(); c.ellipse(-12,-22,6,7,0.5,0,7); c.fill();   // coda
+    c.beginPath(); c.ellipse(2,-17,8,4,0,0,7); c.fillStyle = '#34343c'; c.fill(); }
+  // collo e testa
+  c.beginPath(); c.moveTo(10,-26); c.quadraticCurveTo(13,-40,17,-50);
+  c.strokeStyle = sagoma ? c.strokeStyle : '#e8b9a0'; c.lineWidth = sagoma ? 1.5 : 3.4; c.stroke();
+  c.beginPath(); c.ellipse(19,-52,4.5,3.6,0,0,7);
+  if (sagoma) c.stroke(); else { c.fillStyle = '#e8b9a0'; c.fill();
+    c.fillStyle = '#c98b3a'; c.beginPath(); c.moveTo(23,-53); c.lineTo(29,-51); c.lineTo(23,-50); c.fill();
+    c.fillStyle = '#111'; c.beginPath(); c.arc(20,-53,1.1,0,7); c.fill();
+    c.strokeStyle = sciarpa; c.lineWidth = 4.5; c.beginPath(); c.moveTo(11,-33); c.lineTo(15,-35); c.stroke();
+    c.lineWidth = 3; c.beginPath(); c.moveTo(11,-33); c.lineTo(6,-27); c.stroke(); }
+  c.restore();
+}
+
+/* ---------- pittura dei quadri ---------- */
+const TAVOLOZZE = [['#f6c9a8','#7a2e39','#27405e'],['#bfe0d8','#d98032','#3b2a4a'],['#f2e2b3','#2f6f73','#8a2f2f'],
+                   ['#cfd8f5','#5b3a8a','#c9762f'],['#f7d5e0','#235b8c','#2d2d2d'],['#d6ecb9','#a3353f','#274a3c']];
+function dipingi(q, i, rientrato) {
+  const c = document.createElement('canvas'); c.width = 800; c.height = 600;
+  const x = c.getContext('2d');
+  if (q.img) {
+    const s = Math.max(800 / q.img.width, 600 / q.img.height), w = q.img.width * s, h = q.img.height * s;
+    x.drawImage(q.img, (800 - w) / 2, (600 - h) / 2, w, h);
+    if (!rientrato) { x.fillStyle = 'rgba(10,10,28,.6)'; x.fillRect(0,0,800,600); struzzo(x, 380, 520, 6.5, 1, 0, q.colore, true); }
+    return c;
+  }
+  const r = rng(i + 3), P = TAVOLOZZE[i % TAVOLOZZE.length];
+  // parete
+  const gr = x.createLinearGradient(0,0,0,400); gr.addColorStop(0, P[0]); gr.addColorStop(1, '#fff8ea');
+  x.fillStyle = gr; x.fillRect(0,0,800,600);
+  // boiserie
+  x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = 3;
+  for (let k = 0; k < 4; k++) x.strokeRect(30 + k*190, 40, 160, 320);
+  // finestra ad arco con cielo
+  const ax = 120 + r() * 420, aw = 150;
+  x.fillStyle = P[2]; x.beginPath(); x.moveTo(ax, 380); x.lineTo(ax, 180); x.arc(ax + aw/2, 180, aw/2, Math.PI, 0); x.lineTo(ax + aw, 380); x.fill();
+  x.fillStyle = '#fff'; for (let k = 0; k < 14; k++) { x.globalAlpha = .4 + r()*.6; x.beginPath(); x.arc(ax + 15 + r()*(aw-30), 130 + r()*230, 1 + r()*2.5, 0, 7); x.fill(); }
+  x.globalAlpha = 1;
+  // forme pop
+  for (let k = 0; k < 5; k++) { x.fillStyle = k % 2 ? P[1] : QUADRI[(i + k) % 6].colore; x.globalAlpha = .85;
+    x.beginPath(); x.arc(r()*800, 40 + r()*300, 14 + r()*46, 0, 7); x.fill(); }
+  x.globalAlpha = 1;
+  // pavimento a scacchi in prospettiva
+  for (let riga = 0; riga < 6; riga++) {
+    const y0 = 400 + (riga*riga) * 5.6, y1 = 400 + ((riga+1)*(riga+1)) * 5.6;
+    for (let col = -8; col < 8; col++) {
+      const p = y => 400 + (col * 70) * (0.55 + (y - 400) / 200), p2 = y => 400 + ((col+1) * 70) * (0.55 + (y - 400) / 200);
+      x.fillStyle = (riga + col) & 1 ? P[1] : '#f4efe2';
+      x.beginPath(); x.moveTo(p(y0), y0); x.lineTo(p2(y0), y0); x.lineTo(p2(y1), y1); x.lineTo(p(y1), y1); x.fill();
+    } }
+  x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(0, 392, 800, 8);
+  // lo struzzo (o il vuoto che ha lasciato)
+  const sx = 250 + r() * 300, verso = r() > .5 ? 1 : -1;
+  if (rientrato) { x.fillStyle = 'rgba(0,0,0,.25)'; x.beginPath(); x.ellipse(sx, 545, 90, 14, 0, 0, 7); x.fill();
+    struzzo(x, sx, 545, 6.5, verso, 0.4, q.colore, false); }
+  else { x.fillStyle = 'rgba(10,10,28,.35)'; x.fillRect(0,0,800,600); struzzo(x, sx, 545, 6.5, verso, 0.4, q.colore, true); }
+  return c;
+}
+
+/* ---------- stato ---------- */
+let stato = 'intro', tempo = 0, giocatore, struzzi, quadri, vicino = null, lampi = [];
+const tasti = {}; let tocco = null;
+
+function prepara() {
+  quadri = QUADRI.map((q, i) => {
+    const stanza = i % 3, sopra = i < 3;
+    const o = { ...q, i, stanza, sopra, x: CENTRI[stanza], y: sopra ? 20 : 620, by: sopra ? 78 : 562, rientrato: false, src: q };
+    o.arte = dipingi(q, i, false);
+    return o;
+  });
+  giocatore = { x: 480, y: 320, r: 12, verso: 1, fase: 0, ang: 0 };
+  struzzi = quadri.map((q, i) => {
+    const st = STANZE[(q.stanza + 1 + (i > 2 ? 1 : 0)) % 3];
+    const s = { q, r: 11, verso: 1, fase: Math.random()*6, ang: Math.random()*6.28, cambio: 0, fermo: 0, scatto: 0 };
+    do { s.x = (st.x0 + Math.random() * (st.x1 - st.x0 + 1)) * T; s.y = (2 + Math.random() * 12) * T; }
+    while (urta(s.x, s.y, s.r + 4) || Math.hypot(s.x - 480, s.y - 320) < 120);
+    return s;
+  });
+  tempo = 0; lampi = []; aggiornaHud();
+}
+QUADRI.forEach((q, i) => { const im = new Image();
+  im.onload = () => { q.img = im; if (quadri) { const o = quadri[i]; o.arte = dipingi(q, i, o.rientrato); } };
+  im.src = q.file; });
+
+function aggiornaHud() {
+  $('conta').textContent = quadri.filter(q => q.rientrato).length + ' / ' + quadri.length;
+  const m = Math.min(360, Math.floor(tempo / DURATA * 360));
+  $('ora').textContent = String(Math.floor(m / 60)).padStart(2,'0') + ':' + String(m % 60).padStart(2,'0');
+}
+
+/* ---------- logica ---------- */
+function passo(dt) {
+  tempo += dt;
+  // giocatore
+  let dx = (tasti.ArrowRight || tasti.d ? 1 : 0) - (tasti.ArrowLeft || tasti.a ? 1 : 0);
+  let dy = (tasti.ArrowDown || tasti.s ? 1 : 0) - (tasti.ArrowUp || tasti.w ? 1 : 0);
+  if (tocco) { const ex = tocco.x - giocatore.x, ey = tocco.y - giocatore.y;
+    if (Math.hypot(ex, ey) > 14) { dx = ex; dy = ey; } }
+  const n = Math.hypot(dx, dy);
+  if (n) { dx /= n; dy /= n; muovi(giocatore, dx * 190 * dt, dy * 190 * dt);
+    giocatore.fase += dt * 12; giocatore.ang = Math.atan2(dy, dx); if (dx) giocatore.verso = Math.sign(dx); }
+
+  // struzzi
+  for (const s of struzzi) {
+    if (s.q.rientrato) continue;
+    const ex = s.x - giocatore.x, ey = s.y - giocatore.y, d = Math.hypot(ex, ey);
+    let vel = 45;
+    if (s.scatto > 0) { s.scatto -= dt; vel = 230; }
+    else if (d < 150) { s.ang = Math.atan2(ey, ex); vel = 150; }
+    else if ((s.cambio -= dt) < 0) { s.ang = Math.random() * 6.28; s.cambio = 1 + Math.random() * 2.5; }
+    const px = s.x, py = s.y;
+    const libero = muovi(s, Math.cos(s.ang) * vel * dt, Math.sin(s.ang) * vel * dt);
+    const fatto = Math.hypot(s.x - px, s.y - py);
+    if (!libero && vel === 45) s.cambio = 0;
+    // chiuso in un angolo: scatta di lato e ti sfugge
+    if (d < 150 && s.scatto <= 0) { s.fermo = fatto < vel * dt * 0.35 ? s.fermo + dt : 0;
+      if (s.fermo > 0.45) { s.fermo = 0; s.scatto = 0.7; s.ang = Math.atan2(-ey, -ex) + (Math.random() > .5 ? 0.9 : -0.9); } }
+    s.fase += dt * (vel > 60 ? 16 : 6);
+    const cx = Math.cos(s.ang); if (Math.abs(cx) > .2) s.verso = Math.sign(cx);
+    // davanti al suo quadro?
+    if (Math.hypot(s.x - s.q.x, s.y - s.q.by) < 52) {
+      s.q.rientrato = true; s.q.arte = dipingi(s.q.src, s.q.i, true);
+      lampi.push({ x: s.q.x, y: s.q.by, t: 0, c: s.q.colore });
+      $('msg').textContent = 'Uno struzzo è tornato nel quadro!'; setTimeout(() => $('msg').textContent = '', 2500);
+    }
+  }
+  lampi.forEach(l => l.t += dt); lampi = lampi.filter(l => l.t < 0.8);
+
+  // quadro vicino
+  vicino = null;
+  for (const q of quadri) if (Math.hypot(giocatore.x - q.x, giocatore.y - q.by) < 70) vicino = q;
+  $('guarda').style.display = vicino && tocco === null && 'ontouchstart' in window ? 'block' : 'none';
+
+  aggiornaHud();
+  if (quadri.every(q => q.rientrato)) finisci(true);
+  else if (tempo >= DURATA) finisci(false);
+}
+
+function finisci(vinto) {
+  stato = 'fine'; $('guarda').style.display = 'none';
+  const dentro = quadri.filter(q => q.rientrato).length;
+  $('fineTitolo').textContent = vinto ? 'Tutti al loro posto' : 'È l’alba…';
+  $('fineTesto').textContent = vinto
+    ? 'Alle ' + $('ora').textContent + ' ogni struzzo è di nuovo nel suo quadro. Il direttore non saprà mai niente.'
+    : 'Sono le 06:00 e apre la galleria: ' + dentro + ' struzzi su ' + quadri.length + ' sono nei quadri, gli altri accolgono i visitatori.';
+  $('fine').classList.add('on');
+}
+
+/* ---------- disegno ---------- */
+function disegna() {
+  // pavimento
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+    const v = mappa[y][x];
+    if (v === 1) { g.fillStyle = '#3a3340'; g.fillRect(x*T, y*T, T, T);
+      g.fillStyle = '#4a4152'; g.fillRect(x*T, y*T, T, 6); }
+    else { g.fillStyle = (x + y) & 1 ? '#8c6a4a' : '#9a7652'; g.fillRect(x*T, y*T, T, T);
+      g.strokeStyle = 'rgba(0,0,0,.12)'; g.strokeRect(x*T + .5, y*T + .5, T, T); }
+    if (v === 2) { g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(x*T + 6, y*T + 6, T - 6, T - 4);
+      g.fillStyle = '#5b1f2a'; g.fillRect(x*T + 3, y*T + 2, T - 6, T - 6);
+      g.fillStyle = '#7a2e39'; g.fillRect(x*T + 6, y*T + 5, T - 12, T - 14); }
+  }
+  // quadri alle pareti
+  for (const q of quadri) {
+    const w = 96, h = 30, x0 = q.x - w/2, y0 = q.y - h/2;
+    g.fillStyle = q.colore; g.fillRect(x0 - 4, y0 - 4, w + 8, h + 8);
+    g.drawImage(q.arte, 0, 150, 800, 250, x0, y0, w, h);
+    if (q === vicino) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.strokeRect(x0 - 6, y0 - 6, w + 12, h + 12); }
+    // segno a terra
+    g.strokeStyle = q.colore; g.globalAlpha = q.rientrato ? .25 : .8; g.lineWidth = 2; g.setLineDash([6,6]);
+    g.beginPath(); g.arc(q.x, q.by, 34, 0, 7); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  }
+  // personaggi ordinati per profondità
+  const scena = struzzi.filter(s => !s.q.rientrato).map(s => ({ y: s.y, f: () => {
+      g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(s.x, s.y + 9, 13, 5, 0, 0, 7); g.fill();
+      struzzo(g, s.x, s.y + 10, 0.85, s.verso, s.fase, s.q.colore, false); } }));
+  scena.push({ y: giocatore.y, f: custode });
+  scena.sort((a, b) => a.y - b.y).forEach(o => o.f());
+  // lampi di rientro
+  for (const l of lampi) { g.strokeStyle = l.c; g.globalAlpha = 1 - l.t / 0.8; g.lineWidth = 5;
+    g.beginPath(); g.arc(l.x, l.y, 20 + l.t * 110, 0, 7); g.stroke(); g.globalAlpha = 1; }
+
+  // buio e torcia
+  gb.globalCompositeOperation = 'source-over'; gb.clearRect(0,0,960,640);
+  gb.fillStyle = 'rgba(6,6,20,.8)'; gb.fillRect(0,0,960,640);
+  gb.globalCompositeOperation = 'destination-out';
+  const luce = (x, y, r, f) => { const gr = gb.createRadialGradient(x, y, r * .15, x, y, r);
+    gr.addColorStop(0, 'rgba(0,0,0,' + f + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)'); gb.fillStyle = gr; gb.beginPath(); gb.arc(x, y, r, 0, 7); gb.fill(); };
+  luce(giocatore.x, giocatore.y, 120, 1);
+  luce(giocatore.x + Math.cos(giocatore.ang) * 110, giocatore.y + Math.sin(giocatore.ang) * 110, 170, 1);
+  for (const q of quadri) luce(q.x, q.sopra ? q.y + 30 : q.y - 30, 95, q.rientrato ? 1 : .75);
+  for (const s of struzzi) if (!s.q.rientrato) luce(s.x, s.y - 12, 34, .35);
+  g.drawImage(buio, 0, 0);
+  // alba
+  const alba = Math.max(0, (tempo / DURATA - 0.75) * 4);
+  if (alba) { g.fillStyle = 'rgba(255,170,90,' + (alba * 0.22) + ')'; g.fillRect(0,0,960,640); }
+}
+function custode() {
+  const p = giocatore, a = Math.sin(p.fase) * 4;
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(p.x, p.y + 10, 12, 5, 0, 0, 7); g.fill();
+  g.strokeStyle = '#1b2440'; g.lineWidth = 5; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(p.x - 4, p.y); g.lineTo(p.x - 4 + a, p.y + 10); g.moveTo(p.x + 4, p.y); g.lineTo(p.x + 4 - a, p.y + 10); g.stroke();
+  g.fillStyle = '#2c3e6e'; g.fillRect(p.x - 9, p.y - 18, 18, 20);
+  g.fillStyle = '#d9b45a'; g.fillRect(p.x - 1, p.y - 16, 2, 14);
+  g.fillStyle = '#f0c8a0'; g.beginPath(); g.arc(p.x, p.y - 25, 8, 0, 7); g.fill();
+  g.fillStyle = '#1b2440'; g.fillRect(p.x - 9, p.y - 34, 18, 7); g.fillRect(p.x - 9 + (p.verso > 0 ? 6 : -4), p.y - 29, 16, 3);
+}
+
+/* ---------- ciclo ---------- */
+let prima = 0;
+function ciclo(t) {
+  const dt = Math.min(0.05, (t - prima) / 1000 || 0); prima = t;
+  if (stato === 'gioco') passo(dt);
+  if (quadri) disegna();
+  requestAnimationFrame(ciclo);
+}
+
+/* ---------- comandi ---------- */
+function guarda() {
+  if (stato !== 'gioco' || !vicino) return;
+  stato = 'vista'; $('guarda').style.display = 'none';
+  const t = $('tela'); t.getContext('2d').drawImage(vicino.arte, 0, 0);
+  t.style.borderColor = vicino.colore;
+  $('tTitolo').textContent = vicino.titolo;
+  $('tNota').textContent = vicino.nota || (vicino.rientrato ? 'Lo struzzo è al suo posto.' : 'Manca qualcuno…');
+  $('vista').classList.add('on');
+}
+function chiudi() { $('vista').classList.remove('on'); stato = 'gioco'; }
+function avvia() { prepara(); $('intro').classList.remove('on'); $('fine').classList.remove('on'); stato = 'gioco'; }
+
+addEventListener('keydown', e => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; tasti[k] = true;
+  if (k.startsWith('Arrow') || k === ' ') e.preventDefault();
+  if (k === 'e' || k === ' ' || k === 'Enter') {
+    if (stato === 'vista') chiudi(); else if (stato === 'gioco') guarda(); else if (!e.repeat) avvia();
+  }
+  if (k === 'Escape' && stato === 'vista') chiudi();
+});
+addEventListener('keyup', e => { tasti[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
+const punto = e => { const r = cv.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * 960, y: (e.clientY - r.top) / r.height * 640 }; };
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); tocco = punto(e);
+  if (vicino && Math.abs(tocco.x - vicino.x) < 60 && Math.abs(tocco.y - vicino.y) < 40) { tocco = null; guarda(); } });
+cv.addEventListener('pointermove', e => { if (tocco) tocco = punto(e); });
+['pointerup','pointercancel'].forEach(n => cv.addEventListener(n, () => tocco = null));
+$('via').onclick = avvia; $('ancora').onclick = avvia; $('chiudi').onclick = chiudi; $('guarda').onclick = guarda;
+
+prepara();
+requestAnimationFrame(ciclo);
+</script>
+</body>
+</html>

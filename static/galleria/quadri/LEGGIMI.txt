@@ -1,0 +1,3 @@
+Metti qui le immagini dei quadri: 1.jpg, 2.jpg ... 6.jpg (formato orizzontale, circa 4:3).
+Titoli e note si modificano nella lista QUADRI in cima allo script di ../index.html.
+Usa solo riproduzioni che hai il diritto di pubblicare.
