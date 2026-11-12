@@ -47,42 +47,51 @@
   .opera canvas { width:100%; display:block; margin-bottom:6px; }
   .opera i { font-size:16px; display:block; }
   .opera.chiusa { background:#1a1a2a; color:#777; display:flex; align-items:center; justify-content:center; min-height:150px; text-align:center; }
+  #attrezzi { position:absolute; right:10px; bottom:10px; display:flex; gap:6px; z-index:2; }
+  #attrezzi button { background:rgba(217,180,90,.92); }
+  #notti { display:grid; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)); gap:8px; margin:14px 0 6px; }
+  button.notte { margin:0; padding:9px 6px; display:flex; flex-direction:column; gap:3px; align-items:center; font-size:13px; line-height:1.2; }
+  button.notte b { font-weight:normal; font-size:16px; } button.notte small { font-size:12px; opacity:.85; }
   #tocchi { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); z-index:3; display:none; }
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="hud">
-    <span>Struzzi <b id="conta">0/6</b> · Rubati <b id="rubati">0</b> · Punti <b id="punti">0</b></span>
+    <span>Struzzi <b id="conta">0/6</b> · Rubati <b id="rubati">0</b> · Punti <b id="punti">0</b> <span id="chiavi"></span></span>
     <span id="msg"></span>
     <span><button class="mini sec" id="bLuci" title="Accendi le luci (Q)">Luci</button>
       <button class="mini sec" id="bMuto" title="Audio (M)">♪</button> &nbsp;Ore <b id="ora">00:00</b></span>
   </div>
-  <div id="palco"><canvas id="game"></canvas><canvas id="radar" width="240" height="160"></canvas></div>
+  <div id="palco"><canvas id="game"></canvas><canvas id="radar" width="240" height="160"></canvas>
+    <div id="attrezzi"><button class="mini" id="bFischio"></button><button class="mini" id="bMangime"></button><button class="mini" id="bTransenna"></button></div></div>
   <div id="tocchi"><button id="guarda">Guarda il quadro</button></div>
 
   <div class="velo on" id="intro"><div class="scheda">
     <h1>Notte in galleria</h1>
-    <p>È mezzanotte. Gli struzzi sono <em>usciti dai quadri</em> e, come se non bastasse,
-       stanotte un ladro ha messo gli occhi sulla collezione.</p>
-    <p><b style="color:var(--oro)">Struzzi</b> — scappano da te: spingili nel cerchio del colore della loro sciarpa.<br>
-       <b style="color:var(--oro)">Ladro</b> — quando tocca un quadro scatta l'allarme: hai pochi secondi per raggiungerlo.
-       Se lo acchiappi, il quadro torna al suo posto. Se esce dalla porta, è perso.<br>
-       <b style="color:var(--oro)">Luci</b> — il tasto Q illumina tutte le sale per qualche secondo, poi devono ricaricarsi.</p>
-    <p class="piccolo">1 custode: W/↑ avanti, S/↓ indietro, A·D o ←·→ per girarti, E/Spazio per guardare un quadro.<br>
-       2 custodi (schermo diviso): il primo usa WASD + E, il secondo le frecce + Invio. &nbsp;M: audio · G: grafica semplice/completa.<br>
-       Su telefono: tieni premuto per camminare, sposta il dito ai lati per girare. La minimappa mostra struzzi e allarmi.</p>
-    <p class="piccolo">Alle pareti: diciotto capolavori di pubblico dominio (riproduzioni da Wikimedia Commons). Avvicinati e premi E per guardarli.</p>
-    <button id="via1">1 custode</button><button id="via2">2 custodi</button>
+    <p>Sei il custode di notte di una galleria con diciotto capolavori. Gli struzzi escono dai quadri, i ladri entrano dalle porte:
+       cinque notti per arrivare all’inaugurazione con tutto al suo posto.</p>
+    <button id="m1">1 custode</button><button id="m2" class="sec">2 custodi</button>
+    <div id="notti"></div>
+    <p class="piccolo">W/↑ avanti, S/↓ indietro, A·D o ←·→ per girarti · E/Spazio guarda un quadro · Q luci · 1 2 3 attrezzi · M audio · G grafica semplice.<br>
+       In due, a schermo diviso: il primo usa WASD, E e 1 2 3; il secondo le frecce, Invio e 8 9 0.<br>
+       Su telefono: tieni premuto per camminare, sposta il dito ai lati per girare.<br>
+       Opere di pubblico dominio, riproduzioni da Wikimedia Commons.</p>
     <button class="sec" id="apriCat">Catalogo delle opere</button>
-    <div id="classIntro"></div>
+  </div></div>
+
+  <div class="velo" id="briefing"><div class="scheda">
+    <h1 id="brTitolo"></h1>
+    <p class="piccolo" id="brDati"></p>
+    <p id="brTesto"></p>
+    <p id="brNovita" style="color:var(--oro)"></p>
+    <button id="inizia">Inizia il turno</button><button class="sec" id="brMenu">Menu</button>
   </div></div>
 
   <div class="velo" id="fine"><div class="scheda">
     <h1 id="fineTitolo"></h1>
     <p id="fineStelle" style="font-size:34px;color:var(--oro);margin:0"></p>
     <p id="fineTesto"></p>
-    <div id="classFine"></div>
     <button id="ancora">Rigioca</button><button class="sec" id="menu">Menu</button>
     <button class="sec" id="apriCat2">Catalogo</button>
   </div></div>
@@ -148,13 +157,10 @@ const DECOR = [
   { titolo: 'Girasoli', autore: 'Vincent van Gogh', anno: '1888', tecnica: 'olio su tela', luogo: '', file: 'quadri/girasoli.jpg' },
   { titolo: 'La lattaia', autore: 'Jan Vermeer', anno: '1658–1660 circa', tecnica: 'olio su tela', luogo: 'Rijksmuseum, Amsterdam', file: 'quadri/lattaia.jpg' },
 ];
-const DURATA = 210;            // secondi reali per la notte (00:00 → 06:00)
-const TEMPO_FURTO = 4.5;       // secondi che servono al ladro per staccare un quadro
-const LUCI_ACCESE = 5, LUCI_RICARICA = 22;
 
 /* ---------- salvataggio ---------- */
 const CHIAVE = 'notteInGalleria.v1';
-let salva = { classifica: { 1: [], 2: [] }, schede: QUADRI.map(() => false), muto: false };
+let salva = { classifica: { 1: [], 2: [] }, migliori: { 1: [], 2: [] }, sbloccate: 1, schede: QUADRI.map(() => false), muto: false };
 try { const s = JSON.parse(localStorage.getItem(CHIAVE)); if (s && s.classifica && s.schede) salva = Object.assign(salva, s); } catch (e) {}
 const registra = () => { try { localStorage.setItem(CHIAVE, JSON.stringify(salva)); } catch (e) {} };
 
@@ -176,13 +182,14 @@ VASI.forEach(([x,y]) => mappa[y][x] = 2);
 const STANZE = [{x0:1,x1:7},{x0:9,x1:14},{x0:16,x1:22}];
 const CENTRI = [180, 480, 780], NOMI_SALA = ['Sala I', 'Sala II', 'Sala III'];
 
-const solido = (px,py) => { const tx = Math.floor(px/T), ty = Math.floor(py/T);
-  return tx < 0 || ty < 0 || tx >= MW || ty >= MH || mappa[ty][tx] !== 0; };
-const urta = (x,y,r) => solido(x-r,y-r) || solido(x+r,y-r) || solido(x-r,y+r) || solido(x+r,y+r);
+const solido = (px,py,io) => { const tx = Math.floor(px/T), ty = Math.floor(py/T);
+  if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return true;
+  const v = mappa[ty][tx]; return v !== 0 && !(io && v === 3); };   // 3 = transenna: ferma gli struzzi, non i custodi; 4 = cancello
+const urta = (x,y,r,io) => solido(x-r,y-r,io) || solido(x+r,y-r,io) || solido(x-r,y+r,io) || solido(x+r,y+r,io);
 function muovi(o, dx, dy) {
   let libero = true;
-  if (!urta(o.x+dx, o.y, o.r)) o.x += dx; else libero = false;
-  if (!urta(o.x, o.y+dy, o.r)) o.y += dy; else libero = false;
+  if (!urta(o.x+dx, o.y, o.r, o.io)) o.x += dx; else libero = false;
+  if (!urta(o.x, o.y+dy, o.r, o.io)) o.y += dy; else libero = false;
   return libero;
 }
 // percorso più breve sulla griglia (per il ladro)
@@ -193,7 +200,7 @@ function percorso(x, y, tx, ty) {
     if (cx === tx && cy === ty) { const via = []; let k = [cx, cy];
       while (k) { via.unshift({ x: k[0]*T + T/2, y: k[1]*T + T/2 }); k = da[k[0] + ',' + k[1]]; } return via; }
     for (const [ax, ay] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = cx + ax, ny = cy + ay, id = nx + ',' + ny;
-      if (nx < 0 || ny < 0 || nx >= MW || ny >= MH || mappa[ny][nx] !== 0 || id in da) continue;
+      if (nx < 0 || ny < 0 || nx >= MW || ny >= MH || (mappa[ny][nx] !== 0 && mappa[ny][nx] < 3) || id in da) continue;
       da[id] = [cx, cy]; coda.push([nx, ny]); }
   }
   return [];
@@ -239,7 +246,7 @@ setInterval(() => {
   const f = ARP[battuta % ARP.length];
   suono(f, f, .9, 'sine', .045);
   if (battuta % 4 === 0) suono(f / 4, f / 4, 1.5, 'triangle', .07);
-  if (ladro) suono(55, 55, .12, 'square', .035, .21);
+  if (ladri.length) suono(55, 55, .12, 'square', .035, .21);
   battuta++;
 }, 420);
 function muto() { salva.muto = !salva.muto; registra(); if (uscita) uscita.gain.value = salva.muto ? 0 : 1; $('bMuto').textContent = salva.muto ? '♪̸' : '♪'; }
@@ -310,30 +317,64 @@ function dipingi(q, i, rientrato) {
   return c;
 }
 
+/* ---------- la campagna ---------- */
+const NOTTI = [
+  { nome: 'Il primo turno', struzzi: 3, durata: 150, ladri: 0, fischi: 2, mangime: 0, transenne: 0,
+    testo: 'Tre struzzi sono usciti dai quadri. Spingili nel cerchio del colore della loro sciarpa prima delle 06:00.',
+    novita: 'Fischietto (tasto 1): gli struzzi vicini si bloccano sull’attenti per qualche secondo.' },
+  { nome: 'Un ospite inatteso', struzzi: 4, durata: 180, ladri: 1, pausa: 22, furto: 5, fischi: 2, mangime: 2, transenne: 0,
+    testo: 'Stanotte qualcuno ha messo gli occhi sulla collezione. Quando scatta l’allarme hai pochi secondi: se lo acchiappi il quadro è salvo, se esce dalla porta è perso.',
+    novita: 'Mangime (tasto 2): lo lasci a terra e gli struzzi vicini vanno a beccarlo. Mettilo dentro un cerchio…' },
+  { nome: 'Sotto chiave', struzzi: 6, durata: 210, ladri: 1, pausa: 18, furto: 4.5, cancello: 1, fischi: 3, mangime: 2, transenne: 2,
+    testo: 'Tutti e sei gli struzzi sono in giro, e un cancello chiude uno dei passaggi: la chiave è da qualche parte nelle sale. Il ladro, lui, ha il grimaldello.',
+    novita: 'Transenna (tasto 3): vicino a un passaggio lo chiude agli struzzi per mezzo minuto.' },
+  { nome: 'La banda', struzzi: 6, durata: 210, ladri: 2, pausa: 13, furto: 4.5, fischi: 3, mangime: 2, transenne: 2,
+    testo: 'I ladri adesso sono due, e lavorano insieme: uno per sala. Il fischietto spaventa anche loro.',
+    novita: '' },
+  { nome: 'La lunga notte', struzzi: 6, durata: 230, ladri: 2, pausa: 10, furto: 3.8, velLadro: 1.12, velStruzzi: 1.15, cancello: 1, fischi: 3, mangime: 3, transenne: 2,
+    testo: 'Struzzi più svelti, ladri più rapidi, un cancello chiuso. È l’ultima notte prima dell’inaugurazione.',
+    novita: '' },
+];
+const LUCI_ACCESE = 5, LUCI_RICARICA = 22, PASSAGGI = [8, 15];
+let DURATA = 210, TEMPO_FURTO = 4.5, L = NOTTI[0], notte = 0;
+
 /* ---------- stato ---------- */
 let stato = 'intro', modo = 1, tempo = 0, punti = 0, presi = 0;
-let custodi, struzzi, quadri, ladro, prossimoLadro, vicino = null, lampi = [], luci = 0, ricarica = 0, bip = 0;
+let custodi, struzzi, quadri, ladri = [], prossimoLadro, vicino = null, lampi = [], luci = 0, ricarica = 0;
+let attrezzi = { fischi: 0, mangime: 0, transenne: 0 }, esche = [], transenne = [], cancello = null, chiave = null, chiavi = 0;
 const tasti = {}; let tocco = null;
 const TOUCH = 'ontouchstart' in window;
+const mescola = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const stanzaDi = x => x < 8 * T ? 0 : x < 15 * T ? 1 : 2;
+function postoLibero(st, lontanoDa) { let x, y, n = 0;
+  do { x = (st.x0 + .5 + Math.random() * (st.x1 - st.x0)) * T; y = (2 + Math.random() * 12) * T; }
+  while ((urta(x, y, 15) || (lontanoDa && Math.hypot(x - lontanoDa.x, y - lontanoDa.y) < 120)) && ++n < 200);
+  return { x, y }; }
 
 function prepara() {
+  L = NOTTI[notte]; DURATA = L.durata; TEMPO_FURTO = L.furto || 4.5;
+  PASSAGGI.forEach(tx => { mappa[7][tx] = mappa[8][tx] = 0; });
+  esche = []; transenne = []; chiavi = 0; cancello = null; chiave = null;
+  attrezzi = { fischi: L.fischi, mangime: L.mangime, transenne: L.transenne };
+  if (L.cancello) { const sx = Math.random() < .5;                       // un passaggio chiuso; la chiave è nella sala più lontana
+    cancello = { tx: sx ? 8 : 15, aperto: false }; mappa[7][cancello.tx] = mappa[8][cancello.tx] = 4;
+    chiave = Object.assign(postoLibero(STANZE[sx ? 2 : 0]), { presa: false }); }
+  const fuori = mescola([0, 1, 2, 3, 4, 5]).slice(0, L.struzzi);
   quadri = QUADRI.map((q, i) => {
     const stanza = i % 3, sopra = i < 3;
     const o = { ...q, i, stanza, sopra, x: CENTRI[stanza], y: sopra ? 20 : 620, by: sopra ? 78 : 562,
-                rientrato: false, inMano: false, rubato: false, src: q };
-    o.arte = dipingi(q, i, false);
+                rientrato: !fuori.includes(i), inMano: false, rubato: false, src: q };
+    o.arte = dipingi(q, i, o.rientrato);
     return o;
   });
-  custodi = [{ x: modo === 2 ? 450 : 480, y: 320, r: 12, verso: 1, fase: 0, ang: -Math.PI / 2, divisa: '#2c3e6e', scuro: '#1b2440' }];
-  if (modo === 2) custodi.push({ x: 510, y: 320, r: 12, verso: -1, fase: 0, ang: -Math.PI / 2, divisa: '#7a2e39', scuro: '#4a1820' });
+  custodi = [{ x: modo === 2 ? 450 : 480, y: 320, r: 12, fase: 0, ang: -Math.PI / 2, divisa: '#2c3e6e', scuro: '#1b2440', io: 1 }];
+  if (modo === 2) custodi.push({ x: 510, y: 320, r: 12, fase: 0, ang: -Math.PI / 2, divisa: '#7a2e39', scuro: '#4a1820', io: 1 });
   struzzi = quadri.map((q, i) => {
-    const st = STANZE[(q.stanza + 1 + (i > 2 ? 1 : 0)) % 3];
-    const s = { q, r: 11, verso: 1, fase: Math.random()*6, ang: Math.random()*6.28, cambio: 0, fermo: 0, scatto: 0 };
-    do { s.x = (st.x0 + Math.random() * (st.x1 - st.x0 + 1)) * T; s.y = (2 + Math.random() * 12) * T; }
-    while (urta(s.x, s.y, s.r + 4) || Math.hypot(s.x - 480, s.y - 320) < 120);
+    const s = { q, r: 11, fase: Math.random() * 6, ang: Math.random() * 6.28, cambio: 0, fermo: 0, scatto: 0, attenti: 0, mangia: false };
+    Object.assign(s, postoLibero(STANZE[(q.stanza + 1 + (i > 2 ? 1 : 0)) % 3], { x: 480, y: 320 }));
     return s;
   });
-  tempo = 0; punti = 0; presi = 0; lampi = []; ladro = null; prossimoLadro = 14; luci = 0; ricarica = 0; aggiornaHud(); costruisci();
+  tempo = 0; punti = 0; presi = 0; lampi = []; ladri = []; prossimoLadro = 12; luci = 0; ricarica = 0; aggiornaHud(); costruisci();
 }
 QUADRI.forEach((q, i) => { const im = new Image();
   im.onload = () => { q.img = im; if (quadri) { const o = quadri[i]; o.arte = dipingi(q, i, o.rientrato); } };
@@ -349,19 +390,47 @@ function aggiornaHud() {
   $('ora').textContent = String(Math.floor(m / 60)).padStart(2,'0') + ':' + String(m % 60).padStart(2,'0');
   const b = $('bLuci'); b.disabled = luci > 0 || ricarica > 0;
   b.textContent = luci > 0 ? 'Luci accese' : ricarica > 0 ? 'Luci ' + Math.ceil(ricarica) + 's' : 'Luci (Q)';
+  [['bFischio', 'fischi', 'Fischietto'], ['bMangime', 'mangime', 'Mangime'], ['bTransenna', 'transenne', 'Transenna']].forEach(([id, k, nome], i) => {
+    const e = $(id); e.style.display = L[k] ? '' : 'none'; e.disabled = !attrezzi[k]; e.textContent = (i + 1) + ' · ' + nome + ' ×' + attrezzi[k]; });
+  $('chiavi').textContent = chiavi ? '🗝 ' : '';
 }
 const custodeVicino = (x, y) => { let d = 1e9, c = null;
   for (const k of custodi) { const e = Math.hypot(k.x - x, k.y - y); if (e < d) { d = e; c = k; } } return { d, c }; };
 
-/* ---------- il ladro ---------- */
+/* ---------- gli attrezzi del custode ---------- */
+function fischia(c) {
+  if (stato !== 'gioco' || !attrezzi.fischi) return; attrezzi.fischi--;
+  suono(2300, 2900, .12, 'square', .1); suono(2900, 2500, .35, 'square', .1, .12);
+  lampi.push({ x: c.x, y: c.y, t: 0, c: '#ffffff' }); let n = 0;
+  for (const s of struzzi) if (!s.q.rientrato && Math.hypot(s.x - c.x, s.y - c.y) < 270) { s.attenti = 4.5; s.scatto = 0; n++; }
+  for (const l of ladri) if (Math.hypot(l.x - c.x, l.y - c.y) < 270 && (l.stato === 'va' || l.stato === 'ruba')) { l.stato = 'fugge'; versoPorta(l); }
+  messaggio(n ? n + (n > 1 ? ' struzzi' : ' struzzo') + ' sull’attenti!' : 'Nessuno struzzo abbastanza vicino.');
+}
+function semina(c) {
+  if (stato !== 'gioco' || !attrezzi.mangime) return; attrezzi.mangime--;
+  esche.push({ x: c.x + Math.cos(c.ang) * 26, y: c.y + Math.sin(c.ang) * 26, t: 11 }); suono(900, 500, .08, 'triangle', .1); suono(700, 400, .08, 'triangle', .1, .07);
+  messaggio('Mangime a terra: allontanati e lasciali beccare.');
+}
+function transenna(c) {
+  if (stato !== 'gioco' || !attrezzi.transenne) return;
+  const tx = PASSAGGI.slice().sort((a, b) => Math.abs((a + .5) * T - c.x) - Math.abs((b + .5) * T - c.x))[0];
+  if (Math.hypot((tx + .5) * T - c.x, 8 * T - c.y) > 140) return messaggio('Avvicinati a un passaggio tra le sale.');
+  if (mappa[7][tx] !== 0) return messaggio('Questo passaggio è già chiuso.');
+  attrezzi.transenne--; mappa[7][tx] = mappa[8][tx] = 3; transenne.push({ tx, t: 30 }); suono(160, 110, .15, 'square', .12);
+  for (const s of struzzi) if (Math.floor(s.x / T) === tx) s.x = (tx + (s.x < (tx + .5) * T ? -.35 : 1.35)) * T;   // nessuno resta incastrato
+  messaggio('Transenna piazzata: per mezzo minuto gli struzzi non passano.');
+}
+
+/* ---------- i ladri ---------- */
 function entraLadro() {
-  const bersagli = quadri.filter(q => !q.rubato);
+  const bersagli = quadri.filter(q => !q.rubato && !ladri.some(l => l.q === q));
   if (!bersagli.length) return;
-  // entra dalla porta più lontana dai custodi
-  const porta = PORTE.slice().sort((a, b) => custodeVicino(b.tx*T, b.ty*T).d - custodeVicino(a.tx*T, a.ty*T).d)[0];
+  // entra dalla porta più lontana dai custodi (e da un eventuale complice)
+  const occupata = p => ladri.some(l => Math.hypot(l.x - p.tx * T, l.y - p.ty * T) < 200) ? 1e4 : 0;
+  const porta = PORTE.slice().sort((a, b) => (custodeVicino(b.tx*T, b.ty*T).d - occupata(b)) - (custodeVicino(a.tx*T, a.ty*T).d - occupata(a)))[0];
   const q = bersagli[Math.floor(Math.random() * bersagli.length)];
-  ladro = { x: porta.tx*T + T/2, y: porta.ty*T + T/2, r: 11, stato: 'va', q, t: 0, verso: 1, fase: 0, via: [] };
-  ladro.via = percorso(ladro.x, ladro.y, Math.floor(q.x / T), Math.floor(q.by / T));
+  const l = { x: porta.tx*T + T/2, y: porta.ty*T + T/2, r: 11, stato: 'va', q, t: 0, fase: 0, ang: 0, bip: 0, via: [], id: Math.random() };
+  l.via = percorso(l.x, l.y, Math.floor(q.x / T), Math.floor(q.by / T)); ladri.push(l);
   messaggio('Una porta cigola da qualche parte…');
   suono(180, 240, .5, 'sawtooth', .05);
 }
@@ -375,33 +444,37 @@ function segui(l, vel, dt) {
   if (!l.via.length) return true;
   const p = l.via[0], dx = p.x - l.x, dy = p.y - l.y, d = Math.hypot(dx, dy), passo = vel * dt;
   if (d <= passo) { l.x = p.x; l.y = p.y; l.via.shift(); }
-  else { l.x += dx / d * passo; l.y += dy / d * passo; if (Math.abs(dx) > 1) l.verso = Math.sign(dx); l.ang = Math.atan2(dy, dx); }
+  else { l.x += dx / d * passo; l.y += dy / d * passo; l.ang = Math.atan2(dy, dx); }
   l.fase += dt * vel / 12;
   return !l.via.length;
 }
-function passoLadro(dt) {
-  if (!ladro) { if ((prossimoLadro -= dt) <= 0) entraLadro(); return; }
-  const l = ladro, vicinoC = custodeVicino(l.x, l.y);
-  if (vicinoC.d < 26) {                                   // acchiappato
-    if (l.q.inMano) { l.q.inMano = false; messaggio('Ladro acchiappato: il quadro è salvo!'); }
-    else messaggio('Ladro acchiappato e messo alla porta!');
-    punti += 50; presi++; SFX.preso(); lampi.push({ x: l.x, y: l.y, t: 0, c: '#fff' });
-    ladro = null; prossimoLadro = 18 + Math.random() * 10; return;
+function passoLadri(dt) {
+  if (L.ladri && ladri.length < L.ladri && (prossimoLadro -= dt) <= 0) { entraLadro(); prossimoLadro = L.pausa * (.8 + Math.random() * .5); }
+  const VL = L.velLadro || 1;
+  for (const l of ladri) {
+    const vicinoC = custodeVicino(l.x, l.y);
+    if (vicinoC.d < 26) {                                   // acchiappato
+      if (l.q.inMano) { l.q.inMano = false; messaggio('Ladro acchiappato: il quadro è salvo!'); }
+      else messaggio('Ladro acchiappato e messo alla porta!');
+      punti += 50; presi++; SFX.preso(); lampi.push({ x: l.x, y: l.y, t: 0, c: '#fff' });
+      l.fuori = true; prossimoLadro = Math.max(prossimoLadro, L.pausa * .7); continue;
+    }
+    if ((l.stato === 'va' || l.stato === 'ruba') && (vicinoC.d < 115 || luci > 0 && vicinoC.d < 260)) {
+      l.stato = 'fugge'; versoPorta(l); messaggio('Il ladro ti ha visto e scappa!');
+    }
+    if (l.stato === 'va') { if (segui(l, 105 * VL, dt)) { l.stato = 'ruba'; l.t = 0; l.bip = 0;
+        messaggio('ALLARME — ' + NOMI_SALA[l.q.stanza] + ', parete ' + (l.q.sopra ? 'nord' : 'sud'), true); } }
+    else if (l.stato === 'ruba') {
+      l.t += dt; if ((l.bip -= dt) <= 0) { SFX.allarme(); l.bip = .55; }
+      if (l.t >= TEMPO_FURTO) { l.q.inMano = true; l.stato = 'porta'; versoPorta(l);
+        messaggio('Ha staccato il quadro! Fermalo prima che esca!', true); }
+    }
+    else if (l.stato === 'porta') { if ((l.bip -= dt) <= 0) { SFX.allarme(); l.bip = .9; }
+      if (segui(l, 128 * VL, dt)) { l.q.rubato = true; l.q.inMano = false; SFX.rubato();
+        messaggio('«' + l.q.titolo + '» è stato rubato.', true); l.fuori = true; } }
+    else if (l.stato === 'fugge') { if (segui(l, 165 * VL, dt)) l.fuori = true; }
   }
-  if ((l.stato === 'va' || l.stato === 'ruba') && (vicinoC.d < 115 || luci > 0 && vicinoC.d < 260)) {
-    l.stato = 'fugge'; versoPorta(l); messaggio('Il ladro ti ha visto e scappa!');
-  }
-  if (l.stato === 'va') { if (segui(l, 105, dt)) { l.stato = 'ruba'; l.t = 0; bip = 0;
-      messaggio('ALLARME — ' + NOMI_SALA[l.q.stanza] + ', parete ' + (l.q.sopra ? 'nord' : 'sud'), true); } }
-  else if (l.stato === 'ruba') {
-    l.t += dt; if ((bip -= dt) <= 0) { SFX.allarme(); bip = .55; }
-    if (l.t >= TEMPO_FURTO) { l.q.inMano = true; l.stato = 'porta'; versoPorta(l);
-      messaggio('Ha staccato il quadro! Fermalo prima che esca!', true); }
-  }
-  else if (l.stato === 'porta') { if ((bip -= dt) <= 0) { SFX.allarme(); bip = .9; }
-    if (segui(l, 128, dt)) { l.q.rubato = true; l.q.inMano = false; SFX.rubato();
-      messaggio('«' + l.q.titolo + '» è stato rubato.', true); ladro = null; prossimoLadro = 20 + Math.random() * 10; } }
-  else if (l.stato === 'fugge') { if (segui(l, 165, dt)) { ladro = null; prossimoLadro = 14 + Math.random() * 10; } }
+  if (ladri.some(l => l.fuori)) ladri = ladri.filter(l => !l.fuori);
 }
 
 /* ---------- logica ---------- */
@@ -420,28 +493,39 @@ function passo(dt) {
     if (i === 0 && tocco) { giro = Math.abs(tocco.x) > .22 ? Math.sign(tocco.x) * Math.min(1, Math.abs(tocco.x) * 1.6) : 0; av = tocco.y > .8 ? -1 : 1; }
     c.ang += giro * 2.7 * dt;
     if (av) { const v = av > 0 ? 190 : -110; muovi(c, Math.cos(c.ang) * v * dt, Math.sin(c.ang) * v * dt); c.fase += dt * 12; }
+    if (chiave && !chiave.presa && Math.hypot(c.x - chiave.x, c.y - chiave.y) < 28) { chiave.presa = true; chiavi++;
+      suono(1200, 1800, .1, 'triangle', .15); suono(1800, 2400, .18, 'triangle', .15, .1); messaggio('Hai trovato la chiave del cancello!'); }
+    if (cancello && !cancello.aperto && chiavi && Math.hypot(c.x - (cancello.tx + .5) * T, c.y - 8 * T) < 62) { cancello.aperto = true; chiavi--;
+      mappa[7][cancello.tx] = mappa[8][cancello.tx] = 0; suono(200, 90, .5, 'sawtooth', .1); messaggio('Cancello aperto.'); }
   });
+  for (const e of esche) e.t -= dt; esche = esche.filter(e => e.t > 0);
+  for (const b of transenne) if ((b.t -= dt) <= 0) { mappa[7][b.tx] = mappa[8][b.tx] = 0; messaggio('La transenna è stata tolta.'); }
+  transenne = transenne.filter(b => b.t > 0);
 
-  passoLadro(dt);
+  passoLadri(dt);
 
+  const VS = L.velStruzzi || 1;
   for (const s of struzzi) {
     if (s.q.rientrato) continue;
-    // scappa dal custode più vicino (e, un po' meno, dal ladro)
-    let { d, c } = custodeVicino(s.x, s.y), ex = s.x - c.x, ey = s.y - c.y, raggio = 150;
-    if (ladro) { const dl = Math.hypot(s.x - ladro.x, s.y - ladro.y);
-      if (dl < 80 && dl < d) { d = dl; ex = s.x - ladro.x; ey = s.y - ladro.y; raggio = 80; } }
-    let vel = 45;
-    if (s.scatto > 0) { s.scatto -= dt; vel = 230; }
-    else if (d < raggio) { s.ang = Math.atan2(ey, ex); vel = 150; }
-    else if ((s.cambio -= dt) < 0) { s.ang = Math.random() * 6.28; s.cambio = 1 + Math.random() * 2.5; }
+    s.mangia = false;
+    let esca = null, de = 300; for (const e of esche) { const k = Math.hypot(e.x - s.x, e.y - s.y); if (k < de && stanzaDi(e.x) === stanzaDi(s.x)) { de = k; esca = e; } }
+    // scappa dal custode più vicino (e, un po' meno, dai ladri); col mangime davanti si fida di più
+    let { d, c } = custodeVicino(s.x, s.y), ex = s.x - c.x, ey = s.y - c.y, raggio = esca ? 75 : 150;
+    for (const l of ladri) { const dl = Math.hypot(s.x - l.x, s.y - l.y);
+      if (dl < 80 && dl < d) { d = dl; ex = s.x - l.x; ey = s.y - l.y; raggio = 80; } }
+    let vel = 45 * VS, vaga = false, fuga = false;
+    if (s.attenti > 0) { s.attenti -= dt; vel = 0; }
+    else if (s.scatto > 0) { s.scatto -= dt; vel = 230; }
+    else if (d < raggio) { s.ang = Math.atan2(ey, ex); vel = 150 * VS; fuga = true; }
+    else if (esca) { if (de > 15) { s.ang = Math.atan2(esca.y - s.y, esca.x - s.x); vel = 85; } else { vel = 0; s.mangia = true; } }
+    else { vaga = true; if ((s.cambio -= dt) < 0) { s.ang = Math.random() * 6.28; s.cambio = 1 + Math.random() * 2.5; } }
     const px = s.x, py = s.y;
     const libero = muovi(s, Math.cos(s.ang) * vel * dt, Math.sin(s.ang) * vel * dt);
     const fatto = Math.hypot(s.x - px, s.y - py);
-    if (!libero && vel === 45) s.cambio = 0;
-    if (d < raggio && s.scatto <= 0) { s.fermo = fatto < vel * dt * 0.35 ? s.fermo + dt : 0;
+    if (!libero && vaga) s.cambio = 0;
+    if (fuga) { s.fermo = fatto < vel * dt * 0.35 ? s.fermo + dt : 0;        // chiuso in un angolo: scatta di lato e ti sfugge
       if (s.fermo > 0.45) { s.fermo = 0; s.scatto = 0.7; s.ang = Math.atan2(-ey, -ex) + (Math.random() > .5 ? 0.9 : -0.9); SFX.verso(); } }
-    s.fase += dt * (vel > 60 ? 16 : 6);
-    const cx = Math.cos(s.ang); if (Math.abs(cx) > .2) s.verso = Math.sign(cx);
+    s.fase += dt * (vel > 100 ? 16 : vel > 0 ? 7 : 0);
     const q = s.q;
     if (!q.rubato && !q.inMano && Math.hypot(s.x - q.x, s.y - q.by) < 52) {
       q.rientrato = true; q.arte = dipingi(q.src, q.i, true); punti += 100; SFX.rientro();
@@ -461,8 +545,8 @@ function passo(dt) {
 
   aggiornaHud();
   const vivi = quadri.filter(q => !q.rubato);
-  if (!vivi.length) finisci(false, 'Il ladro ha svuotato la galleria.');
-  else if (vivi.every(q => q.rientrato) && !(ladro && ladro.q.inMano)) finisci(true);
+  if (!vivi.length) finisci(false, 'I ladri hanno svuotato la galleria.');
+  else if (vivi.every(q => q.rientrato) && !ladri.some(l => l.q.inMano)) finisci(true);
   else if (tempo >= DURATA) finisci(false);
 }
 
@@ -470,26 +554,22 @@ function finisci(vinto, motivo) {
   stato = 'fine'; $('tocchi').style.display = 'none';
   const vivi = quadri.filter(q => !q.rubato), dentro = vivi.filter(q => q.rientrato).length, rubati = quadri.length - vivi.length;
   const bonus = vinto ? Math.floor(DURATA - tempo) * 2 : 0; punti += bonus;
-  const stelle = !vinto ? 0 : rubati === 0 ? 3 : rubati === 1 ? 2 : 1;
+  const stelle = !vinto ? 0 : rubati === 0 && tempo < DURATA * .8 ? 3 : rubati <= 1 ? 2 : 1;
   vinto ? SFX.vinto() : SFX.perso();
-  $('fineTitolo').textContent = vinto ? (rubati ? 'La galleria è salva (quasi)' : 'Tutti al loro posto') : 'È l’alba…';
+  const ultima = notte === NOTTI.length - 1;
+  $('fineTitolo').textContent = vinto ? (ultima ? 'La galleria è pronta per l’inaugurazione' : rubati ? 'La galleria è salva (quasi)' : 'Tutti al loro posto') : 'È l’alba…';
   $('fineStelle').textContent = '★'.repeat(stelle) + '☆'.repeat(3 - stelle);
-  $('fineTesto').textContent = (motivo ? motivo + ' ' : vinto
-      ? 'Alle ' + $('ora').textContent + ' ogni struzzo è di nuovo nel suo quadro. '
-      : 'Alle 06:00 apre la galleria e ' + (vivi.length - dentro) + ' struzzi accolgono ancora i visitatori. ')
-    + 'Struzzi rientrati: ' + dentro + ' · quadri rubati: ' + rubati + ' · ladri acchiappati: ' + presi
-    + (bonus ? ' · bonus tempo: ' + bonus : '') + ' · totale: ' + punti + ' punti.';
-  const voce = { p: punti, s: stelle, d: new Date().toLocaleDateString('it-IT'), id: Date.now() };
-  const lista = salva.classifica[modo]; lista.push(voce); lista.sort((a, b) => b.p - a.p); lista.length = Math.min(5, lista.length);
-  registra(); aggiornaHud();
-  $('classFine').innerHTML = classifica(modo, voce.id);
+  $('fineTesto').textContent = 'Notte ' + (notte + 1) + ' — ' + (motivo ? motivo + ' ' : vinto
+      ? 'alle ' + $('ora').textContent + ' ogni struzzo è di nuovo nel suo quadro. '
+      : 'alle 06:00 apre la galleria e ' + (vivi.length - dentro) + (vivi.length - dentro === 1 ? ' struzzo accoglie' : ' struzzi accolgono') + ' ancora i visitatori. ')
+    + 'Quadri rubati: ' + rubati + ' · ladri acchiappati: ' + presi + (bonus ? ' · bonus tempo: ' + bonus : '') + ' · totale: ' + punti + ' punti.';
+  if (vinto) { const m = salva.migliori[modo], v = m[notte];
+    if (!v || punti > v.p) m[notte] = { p: punti, s: Math.max(stelle, v ? v.s : 0) }; else if (stelle > v.s) v.s = stelle;
+    salva.sbloccate = Math.max(salva.sbloccate, Math.min(NOTTI.length, notte + 2)); registra(); }
+  aggiornaHud();
+  $('ancora').textContent = vinto ? (ultima ? 'Rigioca questa notte' : 'Notte successiva') : 'Riprova';
+  $('ancora').onclick = () => briefing(vinto && !ultima ? notte + 1 : notte);
   $('fine').classList.add('on');
-}
-function classifica(m, nuovo) {
-  const l = salva.classifica[m]; if (!l.length) return '';
-  return '<h2>Notti migliori — ' + (m === 1 ? '1 custode' : '2 custodi') + '</h2><ol class="classifica">' +
-    l.map((v, i) => '<li class="' + (v.id === nuovo ? 'nuovo' : '') + '">' + (i + 1) + '. ' + v.p + ' punti ' +
-      '★'.repeat(v.s) + '☆'.repeat(3 - v.s) + ' — ' + v.d + '</li>').join('') + '</ol>';
 }
 
 /* ---------- disegno 3D ---------- */
@@ -713,8 +793,27 @@ function modPersona(divisa, scuro, eLadro) {
   u.and = 0; u.eLadro = eLadro;
   return p;
 }
+// cancelli, transenne da museo, chiave e mangime
+const ARREDI = { cancelli: [], transenne: [], esche: [] };
+{ const ferro = mat(0x1b1b20, { shininess: 60, specular: 0x777777 }), ottone = mat(0xc9a24e, { shininess: 100, specular: 0xfff0b0 }), velluto = mat(0x8c1c2a, { shininess: 4 });
+  PASSAGGI.forEach(tx => {
+    const c = new THREE.Group(); c.position.set(tx + .5, 0, 8); scena.add(c);
+    for (let k = 0; k < 10; k++) { pezzo(new THREE.CylinderGeometry(.028, .028, 2.75, 8), ferro, 0, 1.42, -.81 + k * .18, c); pezzo(new THREE.ConeGeometry(.05, .16, 6), ferro, 0, 2.87, -.81 + k * .18, c); }
+    [.22, 1.4, 2.62].forEach(y => pezzo(new THREE.BoxGeometry(.07, .07, 1.8), ferro, 0, y, 0, c));
+    pezzo(new THREE.BoxGeometry(.14, .22, .2), ottone, 0, 1.25, 0, c); c.visible = false; ARREDI.cancelli.push(c);
+    const t = new THREE.Group(); t.position.set(tx + .5, 0, 8); scena.add(t);
+    [-.72, .72].forEach(z => { pezzo(new THREE.CylinderGeometry(.17, .19, .05, 20), ottone, 0, .025, z, t); pezzo(new THREE.CylinderGeometry(.03, .03, .95, 12), ottone, 0, .5, z, t); palla(ottone, .06, 0, 1, z, t); });
+    [.9, .55].forEach(y => pezzo(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, y, -.72), new THREE.Vector3(0, y - .3, 0), new THREE.Vector3(0, y, .72)), 20, .035, 8), velluto, 0, 0, 0, t));
+    t.visible = false; ARREDI.transenne.push(t); });
+  const oroVivo = mat(0xffd76a, { emissive: 0xc9962a, emissiveIntensity: .7, shininess: 100 }), k = ARREDI.chiave = new THREE.Group(); scena.add(k);
+  pezzo(new THREE.TorusGeometry(.11, .03, 8, 20), oroVivo, 0, .2, 0, k); pezzo(new THREE.BoxGeometry(.045, .34, .045), oroVivo, 0, -.07, 0, k);
+  pezzo(new THREE.BoxGeometry(.11, .045, .04), oroVivo, .06, -.2, 0, k); pezzo(new THREE.BoxGeometry(.08, .045, .04), oroVivo, .045, -.12, 0, k);
+  ARREDI.luceChiave = new THREE.PointLight(0xffd070, 0, 3.5); scena.add(ARREDI.luceChiave);
+  const chicco = mat(0xe8c14a, { emissive: 0x6a5210, emissiveIntensity: .6 }), r = rng(21);
+  for (let j = 0; j < 4; j++) { const e = new THREE.Group(); scena.add(e); e.visible = false; ARREDI.esche.push(e);
+    for (let i = 0; i < 16; i++) { const a = r() * 6.28, d = r() * .22; palla(chicco, .022 + r() * .012, Math.cos(a) * d, .02, Math.sin(a) * d, e); } } }
 let dinamici = null, camere = [];
-const M = { custodi: [], struzzi: [], ladro: null };
+const M = { custodi: [], struzzi: [], ladri: [] };
 function costruisci() {
   if (dinamici) scena.remove(dinamici);
   dinamici = new THREE.Group(); scena.add(dinamici);
@@ -724,7 +823,7 @@ function costruisci() {
     const alone = new THREE.PointLight(0xffe2c4, .3, 5); dinamici.add(alone);
     m.userData.torcia = t; m.userData.alone = alone; return m; });
   M.struzzi = struzzi.map(s => { const m = modStruzzo(s.q.colore); m.rotation.y = -s.ang; dinamici.add(m); return m; });
-  M.ladro = modPersona('#18181c', '#0c0c10', true); M.ladro.visible = false; dinamici.add(M.ladro);
+  M.ladri = [0, 1].map(() => { const m = modPersona('#18181c', '#0c0c10', true); m.visible = false; dinamici.add(m); return m; });
   camere = custodi.map(() => { const k = new THREE.PerspectiveCamera(66, 1.5, .1, 60); k.userData.pronta = false; return k; });
   $('radar').className = custodi.length > 1 ? 'centro' : '';
 }
@@ -759,13 +858,13 @@ function posaStruzzo(m, s) {
   const corre = Math.min(1, Math.max(0, (u.vel - 70) / 60));
   u.panico += ((s.scatto > 0 ? 1 : 0) - u.panico) * .2;
   m.position.set(s.x * U, 0, s.y * U); m.rotation.y = versoAng(m.rotation.y, -s.ang, .2);
-  const A = (.38 + corre * .3) * w, becca = (1 - w) * Math.max(0, Math.sin(t * .35) - .9) * 9;      // ogni tanto becca per terra
+  const A = (.38 + corre * .3) * w, becca = s.mangia ? .5 + .45 * Math.sin(t * 7) : s.attenti > 0 ? 0 : (1 - w) * Math.max(0, Math.sin(t * .35) - .9) * 9;      // ogni tanto becca per terra
   u.gambe.forEach((g, k) => { const ph = f + k * Math.PI, sw = Math.max(0, Math.cos(ph));
     g.anca.rotation.z = .7 + A * Math.sin(ph); g.gin.rotation.z = -1.3 - (.55 + corre * .3) * sw * w; g.cav.rotation.z = .75 + (.75 + corre * .2) * sw * w - A * Math.sin(ph) * .3;
     g.piede.rotation.z = -(g.anca.rotation.z + g.gin.rotation.z + g.cav.rotation.z) - sw * w * .7; });
   u.corpo.position.y = 1.05 + Math.abs(Math.sin(f)) * .05 * w - becca * .05; u.corpo.rotation.z = -corre * .12 + Math.sin(f * 2) * .02 * w;
-  const dondolo = Math.sin(f * 2) * .1 * w, guarda = (1 - w) * Math.sin(t * .6) * .6; let somma = 0;
-  u.collo.forEach((seg, k) => { seg.rotation.z = COLLO[k] + (COLLO_TESO[k] - COLLO[k]) * corre + (k === 0 ? dondolo - becca * .9 : -dondolo * .25 - becca * .24);
+  const dondolo = Math.sin(f * 2) * .1 * w, guarda = s.attenti > 0 || s.mangia ? 0 : (1 - w) * Math.sin(t * .6) * .6; let somma = 0;
+  u.collo.forEach((seg, k) => { seg.rotation.z = COLLO[k] * (s.attenti > 0 ? .55 : 1) + (COLLO_TESO[k] - COLLO[k]) * corre + (k === 0 ? dondolo - becca * .9 : -dondolo * .25 - becca * .24);
     seg.rotation.y = k > 1 ? guarda / 4 : 0; somma += seg.rotation.z; });
   u.testa.rotation.z = -somma * .85 - becca * .5;
   u.ali.forEach((a, k) => { a.rotation.x = (k ? -1 : 1) * (corre * .3 + u.panico * (.9 + Math.sin(t * 26) * .3)); });
@@ -792,12 +891,12 @@ function disegna() {
   const alba = Math.min(1, Math.max(0, (tempo / DURATA - 0.75) * 4));
   ambiente.intensity = .26 + acceso * .75 + alba * .3; ambiente.color.copy(NOTTE).lerp(ALBA, alba);
 
-  quadri.forEach((q, i) => { const o = Q3[i], via = q.rubato || q.inMano, sotto = ladro && ladro.q === q && ladro.stato === 'ruba';
+  quadri.forEach((q, i) => { const o = Q3[i], via = q.rubato || q.inMano, lq = ladri.find(l => l.q === q && l.stato === 'ruba'), sotto = !!lq;
     if (o.arte !== q.arte) vesti(o, q.arte);
     o.tela.visible = !via; o.vuoto.visible = via;
     if (sotto && lamp) o.filetto.material.emissive.setHex(0xff0000); else o.filetto.material.emissive.copy(o.tinta);
     o.glow.material.opacity = via ? .12 : q === vicino ? .85 : .45;
-    o.barra.visible = !!sotto; if (sotto) { o.barra.position.y = -o.h / 2 - .45; o.barra.scale.set(Math.max(.01, o.w * ladro.t / TEMPO_FURTO), .1, .04); }
+    o.barra.visible = !!sotto; if (sotto) { o.barra.position.y = -o.h / 2 - .45; o.barra.scale.set(Math.max(.01, o.w * lq.t / TEMPO_FURTO), .1, .04); }
     o.anello.visible = !q.rubato; o.anello.material.opacity = q.rientrato ? .2 : .9;
     o.faro.intensity = q.rubato ? .12 : q.rientrato ? .9 : .65; });
   DECOR.forEach(d => { if (d.arte && d.o.arte !== d.arte) { vesti(d.o, d.arte); d.o.gph.visible = true; }
@@ -807,10 +906,16 @@ function disegna() {
   custodi.forEach((c, i) => { const m = M.custodi[i], dx = Math.cos(c.ang), dz = Math.sin(c.ang); posaPersona(m, c, c.ang, false);
     const t = m.userData.torcia; t.position.set(c.x * U + dx * .5 - dz * .26, 1.14, c.y * U + dz * .5 + dx * .26); t.target.position.set(c.x * U + dx * 7, .75, c.y * U + dz * 7);
     m.userData.alone.position.set(c.x * U - dx * .5, 2.1, c.y * U - dz * .5); });
-  M.ladro.visible = !!ladro;
-  if (ladro) { posaPersona(M.ladro, ladro, ladro.ang || 0, true); const u = M.ladro.userData; u.bottino.visible = ladro.q.inMano;
-    if (ladro.q.inMano) { u.corniceB.material.color.set(ladro.q.colore); const t = Q3[ladro.q.i].tela.material.map;
-      if (u.telaB.material.map !== t) { u.telaB.material.map = u.telaB.material.emissiveMap = t; u.telaB.material.needsUpdate = true; } } }
+  M.ladri.forEach((m, k) => { const l = ladri[k]; m.visible = !!l; if (!l) { m.userData.px = undefined; return; }
+    posaPersona(m, l, l.ang, true); const u = m.userData; u.bottino.visible = l.q.inMano;
+    if (l.q.inMano) { u.corniceB.material.color.set(l.q.colore); const t = Q3[l.q.i].tela.material.map;
+      if (u.telaB.material.map !== t) { u.telaB.material.map = u.telaB.material.emissiveMap = t; u.telaB.material.needsUpdate = true; } } });
+  const ts = performance.now() / 1000;
+  PASSAGGI.forEach((tx, k) => { ARREDI.cancelli[k].visible = !!cancello && !cancello.aperto && cancello.tx === tx; ARREDI.transenne[k].visible = transenne.some(b => b.tx === tx); });
+  ARREDI.chiave.visible = !!chiave && !chiave.presa;
+  if (ARREDI.chiave.visible) { ARREDI.chiave.position.set(chiave.x * U, 1 + Math.sin(ts * 2) * .08, chiave.y * U); ARREDI.chiave.rotation.y = ts * 2; }
+  ARREDI.luceChiave.intensity = ARREDI.chiave.visible ? 1 : 0; ARREDI.luceChiave.position.copy(ARREDI.chiave.position);
+  ARREDI.esche.forEach((m, k) => { const e = esche[k]; m.visible = !!e; if (e) { m.position.set(e.x * U, 0, e.y * U); m.scale.setScalar(Math.min(1, e.t / 2)); } });
   const ul = lampi[lampi.length - 1];
   if (ul) { lampo.color.set(ul.c); lampo.position.set(ul.x * U, 1.6, ul.y * U); lampo.intensity = (1 - ul.t / .8) * 4; } else lampo.intensity = 0;
 
@@ -834,12 +939,16 @@ function radar(lamp) {
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const v = mappa[y][x];
     gr.fillStyle = v === 1 ? 'rgba(10,10,20,.9)' : v === 2 ? 'rgba(122,46,57,.8)' : 'rgba(150,140,170,.28)'; gr.fillRect(x * 10, y * 10, 10, 10); }
   gr.fillStyle = '#7cffb2'; PORTE.forEach(p => gr.fillRect(p.wx ? 230 : 6, 72, 4, 16));
-  for (const q of quadri) { if (q.rubato) continue; const sotto = ladro && ladro.q === q && ladro.stato !== 'va' && ladro.stato !== 'fugge';
+  for (const q of quadri) { if (q.rubato) continue; const sotto = ladri.some(l => l.q === q && (l.stato === 'ruba' || l.stato === 'porta'));
     gr.fillStyle = sotto && lamp ? '#ff2d2d' : q.colore; gr.globalAlpha = q.inMano ? .3 : 1; gr.fillRect(q.x * k - 12, q.y * k - 3, 24, 6); gr.globalAlpha = 1;
     gr.strokeStyle = q.colore; gr.globalAlpha = q.rientrato ? .3 : 1; gr.beginPath(); gr.arc(q.x * k, q.by * k, 8, 0, 7); gr.stroke(); gr.globalAlpha = 1; }
   for (const s of struzzi) if (!s.q.rientrato) { gr.fillStyle = s.q.colore; gr.beginPath(); gr.arc(s.x * k, s.y * k, 3.5, 0, 7); gr.fill();
     gr.strokeStyle = '#000'; gr.lineWidth = 1; gr.stroke(); }
-  if (ladro && (luci > 0 || ladro.stato === 'ruba' || ladro.stato === 'porta') && lamp) { gr.fillStyle = '#ff2d2d'; gr.fillRect(ladro.x * k - 4, ladro.y * k - 4, 8, 8); }
+  for (const l of ladri) if ((luci > 0 || l.stato === 'ruba' || l.stato === 'porta') && lamp) { gr.fillStyle = '#ff2d2d'; gr.fillRect(l.x * k - 4, l.y * k - 4, 8, 8); }
+  if (cancello && !cancello.aperto) { gr.fillStyle = '#e8e8f0'; gr.fillRect(cancello.tx * 10 + 3, 70, 4, 20); }
+  for (const b of transenne) { gr.fillStyle = '#ff8c42'; gr.fillRect(b.tx * 10 + 3, 70, 4, 20); }
+  if (chiave && !chiave.presa) { gr.fillStyle = lamp ? '#ffd76a' : '#fff'; gr.beginPath(); gr.arc(chiave.x * k, chiave.y * k, 4, 0, 7); gr.fill(); }
+  for (const e of esche) { gr.fillStyle = '#e8c14a'; gr.fillRect(e.x * k - 2, e.y * k - 2, 4, 4); }
   custodi.forEach(c => { gr.save(); gr.translate(c.x * k, c.y * k); gr.rotate(c.ang); gr.fillStyle = c.divisa; gr.strokeStyle = '#fff'; gr.lineWidth = 1.5;
     gr.beginPath(); gr.moveTo(8, 0); gr.lineTo(-5, 5); gr.lineTo(-2, 0); gr.lineTo(-5, -5); gr.closePath(); gr.fill(); gr.stroke(); gr.restore(); });
 }
@@ -866,9 +975,27 @@ function guarda() {
   $('vista').classList.add('on');
 }
 function chiudi() { $('vista').classList.remove('on'); stato = 'gioco'; }
-function avvia(m) { if (m) modo = m; audio(); prepara();
-  ['intro','fine','catalogo'].forEach(i => $(i).classList.remove('on')); stato = 'gioco'; }
-function menu() { $('fine').classList.remove('on'); $('classIntro').innerHTML = classifica(1) + classifica(2); $('intro').classList.add('on'); stato = 'intro'; }
+function nascondi() { ['intro', 'fine', 'catalogo', 'briefing'].forEach(i => $(i).classList.remove('on')); }
+function briefing(n) {
+  notte = n; const N = NOTTI[n]; nascondi(); stato = 'briefing';
+  $('brTitolo').textContent = 'Notte ' + (n + 1) + ' — ' + N.nome; $('brTesto').textContent = N.testo;
+  $('brDati').textContent = N.struzzi + ' struzzi · ' + (N.ladri ? N.ladri + (N.ladri > 1 ? ' ladri' : ' ladro') : 'nessun ladro') + (N.cancello ? ' · un cancello chiuso' : '')
+    + ' · ' + (modo === 1 ? '1 custode' : '2 custodi');
+  $('brNovita').textContent = N.novita ? 'Novità — ' + N.novita : '';
+  $('briefing').classList.add('on');
+}
+function avvia() { audio(); prepara(); nascondi(); stato = 'gioco'; }
+function disegnaMenu() {
+  $('m1').className = modo === 1 ? '' : 'sec'; $('m2').className = modo === 2 ? '' : 'sec';
+  const box = $('notti'); box.innerHTML = '';
+  NOTTI.forEach((N, i) => { const b = document.createElement('button'), v = salva.migliori[modo][i], aperta = i < salva.sbloccate;
+    b.className = 'notte' + (aperta ? '' : ' sec'); b.disabled = !aperta;
+    const t = document.createElement('b'); t.textContent = 'Notte ' + (i + 1);
+    const n = document.createElement('span'); n.textContent = aperta ? N.nome : 'Chiusa';
+    const st = document.createElement('small'); st.textContent = v ? '★'.repeat(v.s) + '☆'.repeat(3 - v.s) + ' · ' + v.p : aperta ? '☆☆☆' : 'vinci la notte prima';
+    b.append(t, n, st); b.onclick = () => briefing(i); box.appendChild(b); });
+}
+function menu() { nascondi(); stato = 'intro'; disegnaMenu(); $('intro').classList.add('on'); }
 function accendi() { if (stato !== 'gioco' || luci > 0 || ricarica > 0) return; luci = LUCI_ACCESE; SFX.luci(); messaggio('Luci accese!'); }
 function apriCatalogo() {
   const gr = $('griglia'); gr.innerHTML = '';
@@ -889,9 +1016,12 @@ addEventListener('keydown', e => {
   if (k === 'e' || k === ' ' || k === 'Enter') {
     if (e.repeat) return;
     if (stato === 'vista') chiudi(); else if (stato === 'gioco') guarda();
-    else if (k === 'Enter' && !$('catalogo').classList.contains('on')) avvia();
+    else if (k === 'Enter' && stato === 'briefing') avvia();
   }
   if (k === 'q') accendi();
+  if (stato === 'gioco' && !e.repeat) { const due = custodi[modo === 2 ? 1 : 0];
+    if (k === '1') fischia(custodi[0]); if (k === '2') semina(custodi[0]); if (k === '3') transenna(custodi[0]);
+    if (k === '8') fischia(due); if (k === '9') semina(due); if (k === '0') transenna(due); }
   if (k === 'g') { salva.semplice = !salva.semplice; registra(); messaggio(salva.semplice ? 'Grafica semplice' : 'Grafica completa'); }
   if (k === 'm') muto();
   if (k === 'Escape') { if (stato === 'vista') chiudi(); $('catalogo').classList.remove('on'); }
@@ -902,12 +1032,14 @@ const punto = e => { const r = cv.getBoundingClientRect();
 cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; cv.setPointerCapture(e.pointerId); tocco = punto(e); });
 cv.addEventListener('pointermove', e => { if (tocco) tocco = punto(e); });
 ['pointerup','pointercancel'].forEach(n => cv.addEventListener(n, () => tocco = null));
-$('via1').onclick = () => avvia(1); $('via2').onclick = () => avvia(2); $('ancora').onclick = () => avvia();
+$('m1').onclick = () => { modo = 1; disegnaMenu(); }; $('m2').onclick = () => { modo = 2; disegnaMenu(); };
+$('inizia').onclick = avvia; $('brMenu').onclick = menu;
+$('bFischio').onclick = () => fischia(custodi[0]); $('bMangime').onclick = () => semina(custodi[0]); $('bTransenna').onclick = () => transenna(custodi[0]);
 $('menu').onclick = menu; $('chiudi').onclick = chiudi; $('guarda').onclick = guarda;
 $('bLuci').onclick = accendi; $('bMuto').onclick = () => { audio(); muto(); };
 $('apriCat').onclick = $('apriCat2').onclick = apriCatalogo; $('chiudiCat').onclick = () => $('catalogo').classList.remove('on');
 if (salva.muto) $('bMuto').textContent = '♪̸';
-$('classIntro').innerHTML = classifica(1) + classifica(2);
+disegnaMenu();
 
 prepara();
 requestAnimationFrame(ciclo);
