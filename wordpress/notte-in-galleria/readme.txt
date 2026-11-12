@@ -1,7 +1,7 @@
 === Notte in galleria ===
 Requires at least: 5.0
 Tested up to: 6.8
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: MIT
 
 Gioco 3D ambientato in una galleria d'arte: scegli se essere il custode o lo struzzo.

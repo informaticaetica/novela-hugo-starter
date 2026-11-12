@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Notte in galleria
  * Description:       Gioco 3D ambientato in una galleria d'arte con diciotto capolavori di pubblico dominio. Inserisci lo shortcode [notte_in_galleria] in una pagina o in un articolo.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 5.0
  * Requires PHP:      5.6
  * License:           MIT
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'NIG_VERSIONE', '1.0.0' );
+define( 'NIG_VERSIONE', '1.1.0' );
 
 /**
  * Indirizzo del gioco: sono file statici dentro la cartella "gioco" di questo plugin.
