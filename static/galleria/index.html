@@ -52,6 +52,12 @@
   #notti { display:grid; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)); gap:8px; margin:14px 0 6px; }
   button.notte { margin:0; padding:9px 6px; display:flex; flex-direction:column; gap:3px; align-items:center; font-size:13px; line-height:1.2; }
   button.notte b { font-weight:normal; font-size:16px; } button.notte small { font-size:12px; opacity:.85; }
+  #fiati .fiato { position:absolute; bottom:14px; width:150px; height:7px; margin-left:-75px; background:rgba(0,0,0,.55); border:1px solid rgba(217,180,90,.7); border-radius:4px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:2; }
+  #fiati .fiato i { display:block; height:100%; background:var(--oro); border-radius:3px; } #fiati .fiato.affanno i { background:#e05a4a; }
+  #leva { display:none; position:absolute; left:14px; bottom:14px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,.07); border:2px solid rgba(217,180,90,.6); touch-action:none; z-index:3; }
+  #pomello { position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px; border-radius:50%; background:rgba(217,180,90,.8); pointer-events:none; }
+  body.touch #leva { display:block; } body.film #leva, body.film #fiati { display:none; }
+  body.touch #radar, body.touch #radar.centro { left:auto; right:8px; top:8px; bottom:auto; width:25%; transform:none; }
   #ruoli { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:10px 0 4px; }
   button.ruolo { margin:0; width:220px; padding:10px 12px 12px; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:13px; line-height:1.3; }
   button.ruolo b { font-weight:normal; font-size:21px; font-style:italic; } button.ruolo.sec canvas { opacity:.75; }
@@ -87,6 +93,8 @@
   </div>
   <div id="palco"><canvas id="game"></canvas><canvas id="radar" width="240" height="160"></canvas>
     <div id="attrezzi"><button class="mini" id="bFischio"></button><button class="mini" id="bMangime"></button><button class="mini" id="bTransenna"></button><button class="mini" id="bStatua">Statua (E)</button></div>
+    <div id="fiati"></div>
+    <div id="leva"><div id="pomello"></div></div>
     <div id="filmUI"><div id="filmTesto"></div><button class="mini sec" id="salta">Salta ▸</button></div></div>
   <div id="tocchi"><button id="guarda">Guarda il quadro</button></div>
 
@@ -616,7 +624,9 @@ let eroi = [], visite = new Set(), beccati = 0, catture = 0, film = null;      /
 const tabella = () => ruolo === 'struzzo' ? NOTTI_S : NOTTI, chiaveRuolo = () => (ruolo === 'struzzo' ? 's' : '') + modo;
 let custodi, struzzi, quadri, ladri = [], prossimoLadro, vicino = null, lampi = [], luci = 0, ricarica = 0;
 let attrezzi = { fischi: 0, mangime: 0, transenne: 0 }, esche = [], transenne = [], cancello = null, chiave = null, chiavi = 0;
-const tasti = {}; let tocco = null;
+const tasti = {}, leva = { x: 0, y: 0, id: null }, FERMO = { giro: 0, avanti: 0, lato: 0, corri: false };
+const inquadra = [{ passo: .25, dist: 3.7 }, { passo: .25, dist: 3.7 }];        // inclinazione e distanza della telecamera di ogni giocatore
+let mouseDentro = false, mouseVoluto = false, uscitaNostra = false, sguardo = null;
 const TOUCH = 'ontouchstart' in window;
 const mescola = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const stanzaDi = x => x < 8 * T ? 0 : x < 15 * T ? 1 : 2;
@@ -671,7 +681,7 @@ function aggiornaHud() {
   $('lab1').textContent = daStruzzo ? 'Opere viste' : 'Struzzi'; $('lab2').textContent = daStruzzo ? 'Catture' : 'Rubati';
   $('conta').textContent = daStruzzo ? visite.size + '/' + L.opere : vivi.filter(q => q.rientrato).length + '/' + vivi.length;
   $('rubati').textContent = daStruzzo ? catture : quadri.length - vivi.length;
-  $('bStatua').style.display = daStruzzo ? '' : 'none';
+  $('bStatua').style.display = daStruzzo ? '' : 'none'; $('bStatua').textContent = document.body.classList.contains('touch') ? 'Statua' : 'Statua (E)';
   $('punti').textContent = punti;
   const m = Math.min(360, Math.floor(tempo / DURATA * 360));
   $('ora').textContent = String(Math.floor(m / 60)).padStart(2,'0') + ':' + String(m % 60).padStart(2,'0');
@@ -765,11 +775,32 @@ function passoLadri(dt) {
 }
 
 /* ---------- logica ---------- */
-function direzione(i) {
-  const f = (tasti.ArrowRight ? 1 : 0) - (tasti.ArrowLeft ? 1 : 0), fv = (tasti.ArrowDown ? 1 : 0) - (tasti.ArrowUp ? 1 : 0);
-  const w = (tasti.d ? 1 : 0) - (tasti.a ? 1 : 0), wv = (tasti.s ? 1 : 0) - (tasti.w ? 1 : 0);
-  if (modo === 1) return [f || w, fv || wv];
-  return i === 0 ? [w, wv] : [f, fv];
+function comandi(i) {                       // che cosa chiede il giocatore i: girare, avanzare, passo laterale, correre
+  const fr = (tasti.ArrowRight ? 1 : 0) - (tasti.ArrowLeft ? 1 : 0), fa = (tasti.ArrowUp ? 1 : 0) - (tasti.ArrowDown ? 1 : 0);
+  const ad = (tasti.d ? 1 : 0) - (tasti.a ? 1 : 0), ws = (tasti.w ? 1 : 0) - (tasti.s ? 1 : 0);
+  if (modo === 2) return i === 0 ? { giro: ad, avanti: ws, lato: 0, corri: !!tasti.ShiftLeft } : { giro: fr, avanti: fa, lato: 0, corri: !!tasti.ShiftRight };
+  const k = { giro: fr + (mouseDentro ? 0 : ad), avanti: fa || ws, lato: mouseDentro ? ad : 0, corri: !!tasti.Shift };      // col mouse agganciato A e D diventano passi laterali
+  if (leva.id !== null) { k.giro += leva.x; k.avanti = -leva.y; k.corri = k.corri || (leva.y < -.6 && Math.hypot(leva.x, leva.y) > .96); }   // leva a schermo: a fondo corsa si corre
+  k.giro = Math.max(-1, Math.min(1, k.giro));
+  return k;
+}
+function muoviEroe(e, k, dt, avanti, indietro, giri, fattore) {     // movimento comune a custode e struzzo, con una riserva di fiato per la corsa
+  e.ang += k.giro * giri * dt;
+  if (e.fiato === undefined) { e.fiato = 1; e.affanno = false; }
+  const mosso = !!(k.avanti || k.lato);
+  if (k.corri && mosso && k.avanti > 0 && !e.affanno) { e.corre = true; e.fiato = Math.max(0, e.fiato - dt / 3); if (e.fiato <= 0) e.affanno = true; }
+  else { e.corre = false; e.fiato = Math.min(1, e.fiato + dt / 6.5); if (e.fiato > .35) e.affanno = false; }
+  if (!mosso) return false;
+  let va = k.avanti * (k.avanti > 0 ? avanti : indietro), vl = k.lato * indietro * 1.15; const tot = Math.hypot(va, vl), max = Math.max(Math.abs(va), Math.abs(vl));
+  if (tot > max) { va *= max / tot; vl *= max / tot; }                // in diagonale non si va più svelti
+  const m = (e.corre ? 1.42 : 1) * (fattore || 1), c = Math.cos(e.ang), sn = Math.sin(e.ang);
+  muovi(e, (c * va - sn * vl) * m * dt, (sn * va + c * vl) * m * dt);
+  return true;
+}
+function ruotaVista(i, giro, alza) {         // mouse o dito: gira il personaggio e inclina la telecamera
+  const e = eroi[i]; if (!e || stato !== 'gioco') return;
+  if (!e.statua) e.ang += giro;
+  inquadra[i].passo = Math.max(.12, Math.min(.62, inquadra[i].passo + alza));
 }
 function passo(dt) {
   tempo += dt;
@@ -777,11 +808,8 @@ function passo(dt) {
 
   if (ruolo === 'struzzo') { eroi.forEach((s, i) => passoEroeStruzzo(s, i, dt)); if (stato !== 'gioco') return;
     custodi.forEach(g => passoGuardia(g, dt)); if (stato !== 'gioco') return; }
-  else custodi.forEach((c, i) => {                     // comandi "da carro armato": gira e avanza
-    let [giro, av] = direzione(i); av = -av;
-    if (i === 0 && tocco) { giro = Math.abs(tocco.x) > .22 ? Math.sign(tocco.x) * Math.min(1, Math.abs(tocco.x) * 1.6) : 0; av = tocco.y > .8 ? -1 : 1; }
-    c.ang += giro * 2.7 * dt;
-    if (av) { const v = av > 0 ? 190 : -110; muovi(c, Math.cos(c.ang) * v * dt, Math.sin(c.ang) * v * dt); c.fase += dt * 12; }
+  else custodi.forEach((c, i) => {                     // gira, avanza, passo laterale, corsa
+    if (muoviEroe(c, comandi(i), dt, 190, 110, 2.7)) c.fase += dt * (c.corre ? 16 : 12);
     if (chiave && !chiave.presa && Math.hypot(c.x - chiave.x, c.y - chiave.y) < 28) { chiave.presa = true; chiavi++;
       suono(1200, 1800, .1, 'triangle', .15); suono(1800, 2400, .18, 'triangle', .15, .1); messaggio('Hai trovato la chiave del cancello!'); }
     if (cancello && !cancello.aperto && chiavi && Math.hypot(c.x - (cancello.tx + .5) * T, c.y - 8 * T) < 62) { cancello.aperto = true; chiavi--;
@@ -851,7 +879,7 @@ function passo(dt) {
   for (const q of quadri) if (!q.rubato && !q.inMano)
     for (const c of custodi) if (Math.hypot(c.x - q.x, c.y - q.by) < 70) vicino = q;
   if (!vicino) for (const d of DECOR) if (d.arte) for (const c of custodi) if (Math.hypot(c.x - d.x, c.y - d.by) < 62) vicinoD = d;
-  $('tocchi').style.display = (vicino || vicinoD) && TOUCH ? 'block' : 'none';
+  $('tocchi').style.display = (vicino || vicinoD) && document.body.classList.contains('touch') ? 'block' : 'none';
 
   aggiornaHud();
   const vivi = quadri.filter(q => !q.rubato);
@@ -935,11 +963,11 @@ function avantiQuiz() {
   if (!quiz.ok) return domandaQuiz();
   const s = quiz.s, q = s.q; $('quiz').classList.remove('on'); quiz = null;
   q.rientrato = false; q.arte = dipingi(q.src, q.i, false); s.inv = 3.5; s.uscita = .7; stato = 'gioco'; SFX.verso();
-  messaggio('Di nuovo fuori! Hai qualche secondo prima che il custode si riprenda.');
+  messaggio('Di nuovo fuori! Hai qualche secondo prima che il custode si riprenda.'); agganciaMouse();
 }
 
 /* ---------- giocare da struzzo ---------- */
-function statuaPremuta(i) { const a = tasti.e || tasti[' '] || tasti.statua; return modo === 1 ? a || tasti.Enter : i === 0 ? a : tasti.Enter; }
+function statuaPremuta(i) { const a = tasti.e || tasti[' '] || tasti.statua || tasti.mouse; return modo === 1 ? a || tasti.Enter : i === 0 ? a : tasti.Enter; }
 const opere = () => quadri.filter(q => !q.rubato && !q.inMano).map(q => ({ k: 'q' + q.i, x: q.x, y: q.by, r: 70, o: q }))
   .concat(DECOR.map((d, j) => ({ k: 'd' + j, x: d.x, y: d.by, r: 62, o: d })));
 function aCasa(s) { const q = s.q; s.aCasa = true; q.rientrato = true; q.arte = dipingi(q.src, q.i, true); lampi.push({ x: q.x, y: q.by, t: 0, c: q.colore }); }
@@ -948,13 +976,11 @@ function passoEroeStruzzo(s, i, dt) {
   disincastra(s);
   if (s.uscita > 0) { s.uscita -= dt; const k = 1 - Math.max(0, s.uscita) / .7; s.scala = .25 + .75 * k; s.salto = Math.sin(k * Math.PI) * .8;   // salta fuori dal quadro
     if (s.uscita <= 0) { s.scala = 1; s.salto = 0; } }
-  const q = s.q; let [giro, av] = direzione(i); av = -av;
-  if (i === 0 && tocco) { giro = Math.abs(tocco.x) > .22 ? Math.sign(tocco.x) * Math.min(1, Math.abs(tocco.x) * 1.6) : 0; av = tocco.y > .8 ? -1 : 1; }
+  const q = s.q;
   s.inv = Math.max(0, s.inv - dt); s.turbo = Math.max(0, s.turbo - dt);
   s.statua = !!statuaPremuta(i);                       // testa sotto la sabbia: immobile, da lontano sembra una scultura
-  if (s.statua) { giro = 0; av = 0; }
-  s.ang += giro * 3 * dt;
-  if (av) { const v = (av > 0 ? 185 : -100) * (s.turbo > 0 ? 1.45 : 1); muovi(s, Math.cos(s.ang) * v * dt, Math.sin(s.ang) * v * dt); s.fase += dt * (s.turbo > 0 ? 20 : 15); }
+  const k = s.statua ? FERMO : comandi(i); if (s.turbo > 0) k.corri = false;                     // con i chicchi corre già a più non posso
+  if (muoviEroe(s, k, dt, 185, 100, 3, s.turbo > 0 ? 1.45 : 1)) s.fase += dt * (s.turbo > 0 || s.corre ? 20 : 15);
   // chicchi: qualche secondo di corsa sfrenata
   let mangiato = false;
   for (const e of esche) if (e.t > 0 && Math.hypot(e.x - s.x, e.y - s.y) < 28) { e.t = 0; mangiato = true; }
@@ -1388,6 +1414,7 @@ function costruisci() {
   M.luciEroi = ruolo === 'struzzo' ? eroi.map(() => { const l = new THREE.PointLight(0xc4d2ff, .8, 8, 1.2); dinamici.add(l); return l; }) : [];   // un po' di chiaro di luna intorno a chi gioca da struzzo
   camere = eroi.map(() => { const k = new THREE.PerspectiveCamera(66, 1.5, .1, 60); k.userData.pronta = false; return k; });
   $('radar').className = eroi.length > 1 ? 'centro' : '';
+  $('fiati').innerHTML = eroi.map((e, i) => '<div class="fiato" style="left:' + (eroi.length > 1 ? 25 + i * 50 : 50) + '%"><i></i></div>').join('');
 }
 const muro = (px, py) => { const tx = Math.floor(px / T), ty = Math.floor(py / T);
   return tx < 0 || ty < 0 || tx >= MW || ty >= MH || mappa[ty][tx] === 1; };
@@ -1493,11 +1520,13 @@ function disegna() {
   const ul = lampi[lampi.length - 1];
   if (ul) { lampo.color.set(ul.c); lampo.position.set(ul.x * U, 1.6, ul.y * U); lampo.intensity = (1 - ul.t / .8) * 4; } else lampo.intensity = 0;
 
-  eroi.forEach((c, i) => { const k = camere[i], dx = Math.cos(c.ang), dz = Math.sin(c.ang); let d = .4;
-    while (d < 3.7 && !muro(c.x - dx * (d + .4) * T, c.y - dz * (d + .4) * T)) d += .15;
-    V.set(c.x * U - dx * d, 2.25 + (3.7 - d) * .32, c.y * U - dz * d);
-    if (!k.userData.pronta) { k.position.copy(V); k.userData.pronta = true; } else k.position.lerp(V, .2);
-    k.lookAt(c.x * U + dx * 2.2, 1.3, c.y * U + dz * 2.2); });
+  eroi.forEach((c, i) => { const k = camere[i], q = inquadra[i], dx = Math.cos(c.ang), dz = Math.sin(c.ang), oriz = q.dist * Math.cos(q.passo); let d = .4;
+    while (d < oriz && !muro(c.x - dx * (d + .4) * T, c.y - dz * (d + .4) * T)) d += .15;                  // un muro alle spalle avvicina la telecamera, e la fa salire
+    V.set(c.x * U - dx * d, Math.min(ALT - .3, 1.3 + q.dist * Math.sin(q.passo) + (oriz - d) * .32), c.y * U - dz * d);
+    if (!k.userData.pronta) { k.position.copy(V); k.userData.pronta = true; } else k.position.lerp(V, mouseDentro || sguardo ? .5 : .2);
+    const av = 2.4 - q.passo * 2; k.lookAt(c.x * U + dx * av, 1.45 - q.passo * .6, c.y * U + dz * av);
+    const b = $('fiati').children[i], f = c.fiato === undefined ? 1 : c.fiato;                              // barra del fiato
+    if (b) { b.style.opacity = f < .995 && stato === 'gioco' ? 1 : 0; b.firstChild.style.width = f * 100 + '%'; b.className = 'fiato' + (c.affanno ? ' affanno' : ''); } });
   if (film) { camere[0].position.set(film.cam[0], film.cam[1], film.cam[2]); camere[0].lookAt(film.look[0], film.look[1], film.look[2]); }
   if (camere.length === 1) { rend.setScissorTest(false); rend.setViewport(0, 0, w, h); camere[0].aspect = w / h; camere[0].updateProjectionMatrix();
     if (composer && !salva.semplice) { try { passoScena.camera = camere[0]; finale.uniforms.t.value = performance.now() % 1000 / 1000; composer.render(); }
@@ -1538,6 +1567,7 @@ let prima = 0;
 function ciclo(t) {
   const dt = Math.min(0.05, (t - prima) / 1000 || 0); prima = t;
   if (stato === 'gioco') passo(dt); else if (stato === 'film') passoFilm(dt);
+  if (stato !== 'gioco' && mouseDentro) liberaMouse();
   if (quadri) disegna();
   requestAnimationFrame(ciclo);
 }
@@ -1554,7 +1584,7 @@ function guarda() {
   $('tNota').textContent = v.decor ? (v.testo || '') : v.rientrato ? (v.testo || 'Lo struzzo è al suo posto.') : 'Manca qualcuno… riporta lo struzzo per leggere la scheda.';
   $('vista').classList.add('on');
 }
-function chiudi() { $('vista').classList.remove('on'); stato = 'gioco'; }
+function chiudi() { $('vista').classList.remove('on'); stato = 'gioco'; agganciaMouse(); }
 function nascondi() { ['soglia', 'intro', 'fine', 'catalogo', 'briefing', 'quiz'].forEach(i => $(i).classList.remove('on')); }
 function briefing(n) {
   notte = n; const N = tabella()[n], g = modo === 1 ? '1 giocatore' : '2 giocatori'; nascondi(); stato = 'briefing';
@@ -1566,7 +1596,8 @@ function briefing(n) {
   $('inizia').textContent = ruolo === 'struzzo' ? 'Esci dalla cornice' : 'Inizia il turno';
   $('briefing').classList.add('on');
 }
-function avvia() { audio(); prepara(); nascondi(); stato = 'gioco';
+function avvia() { audio(); prepara(); nascondi(); stato = 'gioco'; agganciaMouse();
+  if (ruolo === 'custode' && !document.body.classList.contains('touch')) messaggio('Clic nel gioco per girare la visuale con il mouse · Shift per correre');
   if (ruolo === 'struzzo') messaggio('Sei uscito da «' + eroi[0].q.titolo + '». Buona passeggiata!'); }
 function disegnaMenu() {
   const daStruzzo = ruolo === 'struzzo', aperte = daStruzzo ? (salva.sbloccateS || 1) : salva.sbloccate, migliori = salva.migliori[chiaveRuolo()] || [];
@@ -1579,10 +1610,10 @@ function disegnaMenu() {
     const n = document.createElement('span'); n.textContent = aperta ? N.nome : 'Chiusa';
     const st = document.createElement('small'); st.textContent = v ? '★'.repeat(v.s) + '☆'.repeat(3 - v.s) + ' · ' + v.p : aperta ? '☆☆☆' : 'vinci la notte prima';
     b.append(t, n, st); b.onclick = () => briefing(i); box.appendChild(b); });
-  $('aiuto').textContent = 'W/↑ avanti, S/↓ indietro, A·D o ←·→ per girarti · ' + (daStruzzo
-    ? 'tieni premuto E o Spazio per fare la statua · fermati davanti a un’opera per ammirarla · corri addosso ai ladri per beccarli. In due, a schermo diviso: il secondo struzzo usa le frecce e Invio.'
-    : 'E/Spazio guarda un quadro · Q luci · 1 2 3 attrezzi. In due, a schermo diviso: il secondo custode usa le frecce, Invio e 8 9 0.')
-    + ' M audio sì/no · N cambia musica · G grafica semplice. Su telefono: tieni premuto per camminare, sposta il dito ai lati per girare.';
+  $('aiuto').textContent = 'W/↑ avanti, S/↓ indietro, ←·→ o A·D per girarti, Shift per correre finché hai fiato. Un clic nel gioco aggancia il mouse: giri la visuale, A·D diventano passi laterali, la rotella avvicina o allontana, Esc lo libera. '
+    + (daStruzzo ? 'Tieni premuto E, Spazio o il tasto del mouse per fare la statua · fermati davanti a un’opera per ammirarla · corri addosso ai ladri per beccarli. In due, a schermo diviso: il primo usa WASD, E e lo Shift di sinistra; il secondo le frecce, Invio e lo Shift di destra.'
+      : 'E, Spazio o un clic per guardare un quadro · Q luci · 1 2 3 attrezzi. In due, a schermo diviso: il primo usa WASD, E, 1 2 3 e lo Shift di sinistra; il secondo le frecce, Invio, 8 9 0 e lo Shift di destra.')
+    + ' M audio sì/no · N cambia musica · G grafica semplice. Su telefono: leva in basso a sinistra per muoverti (a fondo corsa corri), trascina il dito sul gioco per guardarti intorno.';
 }
 function menu() { nascondi(); stato = 'intro'; disegnaMenu(); $('intro').classList.add('on'); }
 function entra() { audio(); if (salva.introVista) menu(); else avviaFilm(); }
@@ -1613,7 +1644,7 @@ function apriCatalogo() {
 }
 
 addEventListener('keydown', e => {
-  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; tasti[k] = true;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; tasti[k] = true; if (k === 'Shift') tasti[e.code] = true;
   if (stato === 'quiz') { if (k === '1' || k === '2' || k === '3' || k === '4') rispondi(+k - 1); else if ((k === 'Enter' || k === ' ') && !e.repeat) { e.preventDefault(); avantiQuiz(); }
     if (k !== 'm' && k !== 'n') return; }
   if (k.startsWith('Arrow') || k === ' ') e.preventDefault();
@@ -1633,12 +1664,38 @@ addEventListener('keydown', e => {
   if (k === 'n' && !e.repeat) prossimoBrano();
   if (k === 'Escape') { if (stato === 'vista') chiudi(); if (stato === 'film') fineFilm(); $('catalogo').classList.remove('on'); }
 });
-addEventListener('keyup', e => { tasti[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; });
-const punto = e => { const r = cv.getBoundingClientRect();
-  return { x: (e.clientX - r.left) / r.width * 2 - 1, y: (e.clientY - r.top) / r.height }; };
-cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; cv.setPointerCapture(e.pointerId); tocco = punto(e); });
-cv.addEventListener('pointermove', e => { if (tocco) tocco = punto(e); });
-['pointerup','pointercancel'].forEach(n => cv.addEventListener(n, () => tocco = null));
+addEventListener('keyup', e => { tasti[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; if (e.key === 'Shift') tasti[e.code] = false; });
+addEventListener('blur', () => { for (const k in tasti) tasti[k] = false; });                       // niente tasti "incollati" quando si cambia finestra
+// mouse: un clic nel gioco lo aggancia (dove il browser lo consente); altrimenti si gira tenendo premuto e trascinando
+function agganciaMouse(daClic) {
+  if (modo !== 1 || stato !== 'gioco') return; if (daClic) mouseVoluto = true;
+  if (!mouseVoluto || document.pointerLockElement === cv || !cv.requestPointerLock) return;
+  try { const pr = cv.requestPointerLock(); if (pr && pr.catch) pr.catch(mouseNegato); } catch (e) { mouseNegato(); }
+}
+function mouseNegato() { if (mouseVoluto) messaggio('Qui il mouse non si può agganciare: tieni premuto il tasto e trascina per girare la visuale'); mouseVoluto = false; }   // per esempio dentro certe pagine incorporate
+function liberaMouse() { if (document.pointerLockElement === cv) { uscitaNostra = true; document.exitPointerLock(); } }
+document.addEventListener('pointerlockchange', () => { mouseDentro = document.pointerLockElement === cv; tasti.mouse = false;
+  if (mouseDentro) { sguardo = null; messaggio('Visuale col mouse: A·D passo laterale, rotella per lo zoom, Esc per liberarlo'); }
+  else { if (!uscitaNostra && stato === 'gioco') { mouseVoluto = false; messaggio('Mouse liberato: un clic nel gioco per riprenderlo'); } uscitaNostra = false; } });
+document.addEventListener('pointerlockerror', mouseNegato);
+document.addEventListener('mousemove', e => { if (mouseDentro && Math.abs(e.movementX) < 250 && Math.abs(e.movementY) < 250) ruotaVista(0, e.movementX * .0026, e.movementY * .002); });   // gli scarti enormi sono sobbalzi del browser, non movimenti veri
+cv.addEventListener('mousedown', e => { if (e.button !== 0 || stato !== 'gioco') return; if (mouseDentro) { tasti.mouse = true; if (ruolo === 'custode') guarda(); } });
+addEventListener('mouseup', () => { tasti.mouse = false; });
+cv.addEventListener('wheel', e => { if (stato !== 'gioco') return; e.preventDefault(); const q = inquadra[0]; q.dist = Math.max(2.4, Math.min(5.2, q.dist + Math.sign(e.deltaY) * .3)); }, { passive: false });
+cv.addEventListener('pointerdown', e => { if (stato !== 'gioco') return;
+  if (e.pointerType === 'mouse') { if (e.button !== 0) return; agganciaMouse(true); if (mouseDentro) return; }
+  try { cv.setPointerCapture(e.pointerId); } catch (x) {} sguardo = { id: e.pointerId, x: e.clientX, y: e.clientY }; });
+cv.addEventListener('pointermove', e => { if (!sguardo || sguardo.id !== e.pointerId || mouseDentro) return;
+  const tocco = e.pointerType !== 'mouse'; ruotaVista(0, (e.clientX - sguardo.x) * (tocco ? .007 : .005), (e.clientY - sguardo.y) * (tocco ? .004 : .003)); sguardo.x = e.clientX; sguardo.y = e.clientY; });
+['pointerup', 'pointercancel'].forEach(n => cv.addEventListener(n, e => { if (sguardo && sguardo.id === e.pointerId) sguardo = null; }));
+// leva a schermo per i dispositivi a tocco
+{ const lv = $('leva'), pm = $('pomello'), sposta = e => { const r = lv.getBoundingClientRect(), R = r.width / 2; let x = (e.clientX - r.left - R) / (R * .78), y = (e.clientY - r.top - R) / (R * .78);
+    const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; } leva.x = Math.abs(x) < .16 ? 0 : x; leva.y = Math.abs(y) < .16 ? 0 : y; pm.style.transform = 'translate(' + x * R * .6 + 'px,' + y * R * .6 + 'px)'; };
+  lv.addEventListener('pointerdown', e => { e.preventDefault(); try { lv.setPointerCapture(e.pointerId); } catch (x) {} leva.id = e.pointerId; sposta(e); });
+  lv.addEventListener('pointermove', e => { if (leva.id === e.pointerId) sposta(e); });
+  ['pointerup', 'pointercancel'].forEach(n => lv.addEventListener(n, e => { if (leva.id === e.pointerId) { leva.id = null; leva.x = leva.y = 0; pm.style.transform = ''; } }));
+  if (TOUCH && window.matchMedia && matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+  addEventListener('pointerdown', e => { if (e.pointerType === 'touch') document.body.classList.add('touch'); }, true); }
 $('m1').onclick = () => { modo = 1; disegnaMenu(); }; $('m2').onclick = () => { modo = 2; disegnaMenu(); };
 $('r1').onclick = () => { ruolo = 'custode'; disegnaMenu(); }; $('r2').onclick = () => { ruolo = 'struzzo'; disegnaMenu(); };
 $('qzAvanti').onclick = avantiQuiz; $('entra').onclick = entra; $('salta').onclick = fineFilm; $('rivedi').onclick = () => { audio(); avviaFilm(); };
