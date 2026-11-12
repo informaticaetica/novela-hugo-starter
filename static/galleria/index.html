@@ -36,7 +36,7 @@
   ol.classifica { list-style:none; padding:0; margin:4px 0; font-size:14px; }
   ol.classifica li.nuovo { color:var(--oro); }
   #vista .scheda { max-width:min(92vw,820px); }
-  #tela { max-width:100%; max-height:58vh; border:10px solid var(--oro); box-shadow:0 0 60px rgba(217,180,90,.35); background:#111; }
+  #tela { max-width:100%; max-height:56vh; width:auto; height:auto; border:10px solid var(--oro); box-shadow:0 0 60px rgba(217,180,90,.35); background:#111; }
   .targa { display:inline-block; margin-top:12px; padding:8px 18px; background:var(--carta); color:#222; font-size:14px; text-align:left; max-width:560px; }
   .targa i { display:block; font-size:17px; }
   .targa small { display:block; opacity:.7; }
@@ -70,8 +70,9 @@
        Se lo acchiappi, il quadro torna al suo posto. Se esce dalla porta, è perso.<br>
        <b style="color:var(--oro)">Luci</b> — il tasto Q illumina tutte le sale per qualche secondo, poi devono ricaricarsi.</p>
     <p class="piccolo">1 custode: W/↑ avanti, S/↓ indietro, A·D o ←·→ per girarti, E/Spazio per guardare un quadro.<br>
-       2 custodi (schermo diviso): il primo usa WASD + E, il secondo le frecce + Invio. &nbsp;M: audio.<br>
+       2 custodi (schermo diviso): il primo usa WASD + E, il secondo le frecce + Invio. &nbsp;M: audio · G: grafica semplice/completa.<br>
        Su telefono: tieni premuto per camminare, sposta il dito ai lati per girare. La minimappa mostra struzzi e allarmi.</p>
+    <p class="piccolo">Alle pareti: diciotto capolavori di pubblico dominio (riproduzioni da Wikimedia Commons). Avvicinati e premi E per guardarli.</p>
     <button id="via1">1 custode</button><button id="via2">2 custodi</button>
     <button class="sec" id="apriCat">Catalogo delle opere</button>
     <div id="classIntro"></div>
@@ -101,22 +102,51 @@
 </div>
 
 <script src="three.min.js"></script>
+<script src="three.post.js"></script>
 <script>
 /* ============================================================
-   I QUADRI
-   Il gioco prova a caricare l'immagine indicata in "file"
-   (cartella static/galleria/quadri/). Se manca, dipinge un
-   segnaposto. Titolo, anno, tecnica e testo compaiono nella
-   targhetta e nel catalogo: compilali con i dati veri.
-   Usa solo riproduzioni che hai il diritto di pubblicare.
+   LE OPERE
+   Tutte le opere esposte sono di pubblico dominio (autori morti
+   da più di 70 anni); le riproduzioni vengono da Wikimedia
+   Commons: l'elenco con le fonti è in quadri/CREDITI.md.
+   Per cambiare un quadro sostituisci il file in quadri/ e
+   aggiorna titolo, autore e testo qui sotto. Se un file manca,
+   il gioco dipinge un segnaposto.
    ============================================================ */
 const QUADRI = [
-  { titolo: 'Quadro I',   anno: '', tecnica: '', testo: '', file: 'quadri/1.jpg', colore: '#e63946' },
-  { titolo: 'Quadro II',  anno: '', tecnica: '', testo: '', file: 'quadri/2.jpg', colore: '#f4a261' },
-  { titolo: 'Quadro III', anno: '', tecnica: '', testo: '', file: 'quadri/3.jpg', colore: '#2a9d8f' },
-  { titolo: 'Quadro IV',  anno: '', tecnica: '', testo: '', file: 'quadri/4.jpg', colore: '#4895ef' },
-  { titolo: 'Quadro V',   anno: '', tecnica: '', testo: '', file: 'quadri/5.jpg', colore: '#c77dff' },
-  { titolo: 'Quadro VI',  anno: '', tecnica: '', testo: '', file: 'quadri/6.jpg', colore: '#ffd60a' },
+  { titolo: 'Notte stellata', autore: 'Vincent van Gogh', anno: '1889', tecnica: 'olio su tela', luogo: 'MoMA, New York',
+    testo: 'Dipinta a Saint-Rémy-de-Provence, nella clinica dove Van Gogh era ricoverato: il cielo visto dalla sua finestra, rifatto a memoria.',
+    file: 'quadri/notte-stellata.jpg', colore: '#e63946' },
+  { titolo: 'Nascita di Venere', autore: 'Sandro Botticelli', anno: '1485 circa', tecnica: 'tempera su tela', luogo: 'Uffizi, Firenze',
+    testo: 'Venere approda a riva su una conchiglia, sospinta dai venti: uno dei simboli del Rinascimento fiorentino.',
+    file: 'quadri/nascita-venere.jpg', colore: '#f4a261' },
+  { titolo: 'La grande onda di Kanagawa', autore: 'Katsushika Hokusai', anno: '1831 circa', tecnica: 'xilografia policroma', luogo: '',
+    testo: 'La prima delle «Trentasei vedute del monte Fuji»: il vulcano è piccolo, lontano, sotto l’onda.',
+    file: 'quadri/grande-onda.jpg', colore: '#2a9d8f' },
+  { titolo: 'Impressione, levar del sole', autore: 'Claude Monet', anno: '1872', tecnica: 'olio su tela', luogo: 'Musée Marmottan Monet, Parigi',
+    testo: 'Il porto di Le Havre all’alba. Dal titolo di questo quadro un critico ricavò, per scherno, la parola «impressionisti».',
+    file: 'quadri/impressione.jpg', colore: '#4895ef' },
+  { titolo: 'La scuola di Atene', autore: 'Raffaello Sanzio', anno: '1509–1511', tecnica: 'affresco', luogo: 'Stanza della Segnatura, Musei Vaticani',
+    testo: 'I filosofi dell’antichità riuniti sotto un’unica architettura; al centro Platone e Aristotele.',
+    file: 'quadri/scuola-atene.jpg', colore: '#c77dff' },
+  { titolo: 'Una domenica pomeriggio sull’isola della Grande-Jatte', autore: 'Georges Seurat', anno: '1884–1886', tecnica: 'olio su tela', luogo: 'Art Institute of Chicago',
+    testo: 'Il manifesto del puntinismo: l’immagine è costruita con piccoli tocchi di colore puro accostati.',
+    file: 'quadri/grande-jatte.jpg', colore: '#ffd60a' },
+];
+/* Opere alle pareti laterali: non fanno parte del gioco, ma si possono guardare da vicino. */
+const DECOR = [
+  { titolo: 'La Gioconda', autore: 'Leonardo da Vinci', anno: '1503–1519 circa', tecnica: 'olio su tavola', luogo: 'Louvre, Parigi', file: 'quadri/gioconda.jpg' },
+  { titolo: 'Ragazza con l’orecchino di perla', autore: 'Jan Vermeer', anno: '1665 circa', tecnica: 'olio su tela', luogo: 'Mauritshuis, L’Aia', file: 'quadri/orecchino-perla.jpg' },
+  { titolo: 'La ronda di notte', autore: 'Rembrandt', anno: '1642', tecnica: 'olio su tela', luogo: 'Rijksmuseum, Amsterdam', file: 'quadri/ronda-notte.jpg' },
+  { titolo: 'Canestra di frutta', autore: 'Caravaggio', anno: '1597–1600 circa', tecnica: 'olio su tela', luogo: 'Pinacoteca Ambrosiana, Milano', file: 'quadri/canestra.jpg' },
+  { titolo: 'L’urlo', autore: 'Edvard Munch', anno: '1893', tecnica: 'tempera e pastello su cartone', luogo: 'Galleria nazionale, Oslo', file: 'quadri/urlo.jpg' },
+  { titolo: 'Il bacio', autore: 'Gustav Klimt', anno: '1907–1908', tecnica: 'olio e foglia d’oro su tela', luogo: 'Belvedere, Vienna', file: 'quadri/bacio.jpg' },
+  { titolo: 'La Libertà che guida il popolo', autore: 'Eugène Delacroix', anno: '1830', tecnica: 'olio su tela', luogo: 'Louvre, Parigi', file: 'quadri/liberta.jpg' },
+  { titolo: 'Il quarto stato', autore: 'Giuseppe Pellizza da Volpedo', anno: '1901', tecnica: 'olio su tela', luogo: 'Milano', file: 'quadri/quarto-stato.jpg' },
+  { titolo: 'Viandante sul mare di nebbia', autore: 'Caspar David Friedrich', anno: '1818 circa', tecnica: 'olio su tela', luogo: 'Kunsthalle, Amburgo', file: 'quadri/viandante.jpg' },
+  { titolo: 'Las Meninas', autore: 'Diego Velázquez', anno: '1656', tecnica: 'olio su tela', luogo: 'Museo del Prado, Madrid', file: 'quadri/meninas.jpg' },
+  { titolo: 'Girasoli', autore: 'Vincent van Gogh', anno: '1888', tecnica: 'olio su tela', luogo: '', file: 'quadri/girasoli.jpg' },
+  { titolo: 'La lattaia', autore: 'Jan Vermeer', anno: '1658–1660 circa', tecnica: 'olio su tela', luogo: 'Rijksmuseum, Amsterdam', file: 'quadri/lattaia.jpg' },
 ];
 const DURATA = 210;            // secondi reali per la notte (00:00 → 06:00)
 const TEMPO_FURTO = 4.5;       // secondi che servono al ladro per staccare un quadro
@@ -141,6 +171,8 @@ for (let y = 0; y < MH; y++) { mappa.push([]);
     mappa[y].push(v);
   } }
 BANCHI.forEach(([x,y]) => mappa[y][x] = 2);
+const VASI = [[1,1],[22,1],[1,14],[22,14]];
+VASI.forEach(([x,y]) => mappa[y][x] = 2);
 const STANZE = [{x0:1,x1:7},{x0:9,x1:14},{x0:16,x1:22}];
 const CENTRI = [180, 480, 780], NOMI_SALA = ['Sala I', 'Sala II', 'Sala III'];
 
@@ -242,9 +274,13 @@ function dipingi(q, i, rientrato) {
   const c = document.createElement('canvas'); c.width = 800; c.height = 600;
   const x = c.getContext('2d');
   if (q.img) {
-    const s = Math.max(800 / q.img.width, 600 / q.img.height), w = q.img.width * s, h = q.img.height * s;
-    x.drawImage(q.img, (800 - w) / 2, (600 - h) / 2, w, h);
-    if (!rientrato) { x.fillStyle = 'rgba(10,10,28,.6)'; x.fillRect(0,0,800,600); struzzo(x, 380, 520, 6.5, 1, 0, q.colore, true); }
+    const a = Math.min(1.7, Math.max(.62, q.img.width / q.img.height)); c.height = Math.round(800 / a);
+    const H = c.height, s = Math.max(800 / q.img.width, H / q.img.height), w = q.img.width * s, h = q.img.height * s;
+    x.drawImage(q.img, (800 - w) / 2, (H - h) / 2, w, h);
+    if (q.decor) return c;
+    const k = H / 105;                                   // lo struzzo occupa circa metà dell'altezza
+    if (!rientrato) { x.fillStyle = 'rgba(10,10,28,.5)'; x.fillRect(0, 0, 800, H); x.lineWidth = 2; struzzo(x, 590, H * .97, k, 1, 0, q.colore, true); }
+    else { x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.ellipse(590, H * .965, k * 15, k * 2.2, 0, 0, 7); x.fill(); struzzo(x, 590, H * .97, k, 1, 0.4, q.colore, false); }
     return c;
   }
   const r = rng(i + 3), P = TAVOLOZZE[i % TAVOLOZZE.length];
@@ -302,6 +338,7 @@ function prepara() {
 QUADRI.forEach((q, i) => { const im = new Image();
   im.onload = () => { q.img = im; if (quadri) { const o = quadri[i]; o.arte = dipingi(q, i, o.rientrato); } };
   im.src = q.file; });
+DECOR.forEach(d => { d.decor = true; const im = new Image(); im.onload = () => { d.img = im; d.arte = dipingi(d, 0, true); }; im.src = d.file; });
 
 function aggiornaHud() {
   const vivi = quadri.filter(q => !q.rubato);
@@ -418,7 +455,9 @@ function passo(dt) {
   vicino = null;
   for (const q of quadri) if (!q.rubato && !q.inMano)
     for (const c of custodi) if (Math.hypot(c.x - q.x, c.y - q.by) < 70) vicino = q;
-  $('tocchi').style.display = vicino && TOUCH ? 'block' : 'none';
+  vicinoD = null;
+  if (!vicino) for (const d of DECOR) if (d.arte) for (const c of custodi) if (Math.hypot(c.x - d.x, c.y - d.by) < 62) vicinoD = d;
+  $('tocchi').style.display = (vicino || vicinoD) && TOUCH ? 'block' : 'none';
 
   aggiornaHud();
   const vivi = quadri.filter(q => !q.rubato);
@@ -478,17 +517,46 @@ const pav = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), mat(0xffffff, { shin
       x.fillStyle = 'rgb(' + (120 + t * 45 | 0) + ',' + (84 + t * 34 | 0) + ',' + (54 + t * 24 | 0) + ')'; x.fillRect(x0 + 1, riga * 32 + 1, l - 2, 30);
       x.strokeStyle = 'rgba(0,0,0,.18)'; for (let v = 0; v < 3; v++) { const yy = riga * 32 + 5 + r() * 22; x.beginPath(); x.moveTo(x0, yy); x.lineTo(x0 + l, yy + r() * 4 - 2); x.stroke(); } } }, 12, 8) }));
 pav.rotation.x = -Math.PI / 2; pav.position.set(MW / 2, 0, MH / 2); pav.receiveShadow = true; scena.add(pav);
-const soff = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), mat(0x1a1922)); soff.rotation.x = Math.PI / 2; soff.position.set(MW / 2, ALT, MH / 2); scena.add(soff);
+const soff = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), mat(0x2b2a33, { shininess: 2 })); soff.rotation.x = Math.PI / 2; soff.position.set(MW / 2, ALT, MH / 2); scena.add(soff);
 { const celle = []; for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) if (mappa[y][x] === 1) celle.push([x, y]);
-  const muri = new THREE.InstancedMesh(new THREE.BoxGeometry(1, ALT, 1), mat(0xffffff, { map: trama(256, 512, (x, w, h) => {
-      const r = rng(11); x.fillStyle = '#44566a'; x.fillRect(0, 0, w, h);
-      for (let k = 0; k < 900; k++) { x.fillStyle = 'rgba(' + (r() > .5 ? '255,255,255' : '0,0,0') + ',.035)'; x.fillRect(r() * w, r() * h, 3, 3); }
-      const y0 = h * .7; x.fillStyle = '#27303c'; x.fillRect(0, y0, w, h - y0);
-      x.strokeStyle = 'rgba(255,255,255,.08)'; x.lineWidth = 3; x.strokeRect(22, y0 + 26, w - 44, h - y0 - 70);
-      x.fillStyle = '#b8964a'; x.fillRect(0, y0 - 5, w, 7); x.fillStyle = '#15191f'; x.fillRect(0, h - 28, w, 28);
-      x.fillStyle = '#39485a'; x.fillRect(0, 0, w, 14); }) }), celle.length);
+  const muri = new THREE.InstancedMesh(new THREE.BoxGeometry(1, ALT, 1), mat(0x241812, { shininess: 25 }), celle.length);
   const m4 = new THREE.Matrix4(); celle.forEach(([x, y], i) => { m4.makeTranslation(x + .5, ALT / 2, y + .5); muri.setMatrixAt(i, m4); });
   muri.castShadow = muri.receiveShadow = true; scena.add(muri); }
+// ogni sala ha la sua tappezzeria damascata, con boiserie, cornice dorata e cornicione
+function tappezzeria(base) { return trama(512, 1024, (x, w, h) => {
+  const r = rng(3); x.fillStyle = base; x.fillRect(0, 0, w, h);
+  x.globalAlpha = .13; x.fillStyle = x.strokeStyle = '#fff'; x.lineWidth = 2;
+  for (let j = -1; j < 9; j++) for (let i = 0; i < 5; i++) { x.save(); x.translate(i * 128 + (j % 2 ? 64 : 0), j * 128 + 40);
+    for (let k = 0; k < 4; k++) { x.rotate(Math.PI / 2); x.beginPath(); x.moveTo(0, -6); x.bezierCurveTo(22, -18, 24, -44, 0, -56); x.bezierCurveTo(-24, -44, -22, -18, 0, -6); x.fill(); }
+    x.beginPath(); x.arc(0, 0, 8, 0, 7); x.fill();
+    x.beginPath(); x.moveTo(-64, 0); x.quadraticCurveTo(-20, -20, 0, -64); x.quadraticCurveTo(20, -20, 64, 0); x.quadraticCurveTo(20, 20, 0, 64); x.quadraticCurveTo(-20, 20, -64, 0); x.stroke(); x.restore(); }
+  x.globalAlpha = 1;
+  for (let k = 0; k < 2600; k++) { x.fillStyle = 'rgba(' + (r() > .5 ? '255,255,255' : '0,0,0') + ',.04)'; x.fillRect(r() * w, r() * h, 2, 5); }
+  const y0 = h * .72; x.fillStyle = '#2a1b13'; x.fillRect(0, y0, w, h - y0);
+  for (let i = 0; i < 2; i++) { const px = i * 256 + 22; x.fillStyle = '#36241a'; x.fillRect(px, y0 + 36, 212, h - y0 - 92);
+    x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = 5; x.strokeRect(px, y0 + 36, 212, h - y0 - 92);
+    x.strokeStyle = 'rgba(255,215,160,.13)'; x.lineWidth = 2; x.strokeRect(px + 9, y0 + 45, 194, h - y0 - 110); }
+  x.fillStyle = '#b8964a'; x.fillRect(0, y0 - 9, w, 11); x.fillStyle = 'rgba(0,0,0,.4)'; x.fillRect(0, y0 + 2, w, 5);
+  x.fillStyle = '#150e09'; x.fillRect(0, h - 38, w, 38);
+  x.fillStyle = '#cdc2a8'; x.fillRect(0, 0, w, 60); x.fillStyle = 'rgba(0,0,0,.22)'; [16, 34, 54].forEach(y => x.fillRect(0, y, w, 4));
+  x.fillStyle = '#b8964a'; x.fillRect(0, 60, w, 6); }); }
+function parete(m, cx, cz, len, rotY) { const g = new THREE.PlaneGeometry(len, ALT), uv = g.attributes.uv;
+  for (let k = 0; k < uv.count; k++) uv.setX(k, uv.getX(k) * len / 2);
+  const o = new THREE.Mesh(g, m); o.position.set(cx, ALT / 2, cz); o.rotation.y = rotY; o.receiveShadow = true; scena.add(o); }
+['#6b1f26', '#1f4a3c', '#22365c'].forEach((tinta, r) => { const s = STANZE[r], t = tappezzeria(tinta); t.wrapS = THREE.RepeatWrapping;
+  const m = mat(0xffffff, { map: t, shininess: 6 }), a = s.x0, b = s.x1 + 1;
+  parete(m, (a + b) / 2, 1.004, b - a, 0); parete(m, (a + b) / 2, MH - 1.004, b - a, Math.PI);
+  [[a + .004, Math.PI / 2, r === 0], [b - .004, -Math.PI / 2, r === 2]].forEach(([x, rot, pieno]) => {
+    parete(m, x, 4, 6, rot); parete(m, x, 12, 6, rot); if (pieno) parete(m, x, 8, 2, rot); }); });
+{ const noce = mat(0x2c1b12, { shininess: 35, specular: 0x553a22 });               // passaggi tra le sale
+  [8, 15].forEach(x => { pezzo(new THREE.BoxGeometry(1.1, 1, 2), noce, x + .5, 3.5, 8, scena);
+    [7.07, 8.93].forEach(z => pezzo(new THREE.BoxGeometry(1.1, 3, .14), noce, x + .5, 1.5, z, scena)); }); }
+{ const marmo = mat(0xd9d4ca, { shininess: 70, specular: 0x666666 }), ceramica = mat(0x2d4f7c, { shininess: 100, specular: 0xaaaaaa, side: THREE.DoubleSide });
+  const profilo = [[0, 0], [.15, 0], [.19, .05], [.29, .3], [.32, .5], [.25, .72], [.12, .84], [.11, .92], [.18, 1.0], [.16, 1.02]].map(p => new THREE.Vector2(p[0], p[1]));
+  VASI.forEach(([x, y]) => { pezzo(new THREE.BoxGeometry(.66, 1, .66), marmo, x + .5, .5, y + .5, scena).receiveShadow = true;
+    pezzo(new THREE.BoxGeometry(.8, .08, .8), marmo, x + .5, 1.04, y + .5, scena); pezzo(new THREE.BoxGeometry(.8, .1, .8), marmo, x + .5, .05, y + .5, scena);
+    pezzo(new THREE.LatheGeometry(profilo, 32), ceramica, x + .5, 1.08, y + .5, scena);
+    pezzo(new THREE.TorusGeometry(.3, .025, 8, 32), mat(0xb8964a, { shininess: 90 }), x + .5, 1.6, y + .5, scena).rotation.x = Math.PI / 2; }); }
 // panche
 { const velluto = mat(0x5b1f2a, { shininess: 2 }), legnoScuro = mat(0x2a1a14);
   BANCHI.forEach(([x, y]) => { pezzo(new THREE.BoxGeometry(.96, .32, .96), legnoScuro, x + .5, .16, y + .5, scena).receiveShadow = true;
@@ -499,20 +567,52 @@ PORTE.forEach(p => { const x = p.wx ? MW - 1.04 : 1.04;
   pezzo(new THREE.SphereGeometry(.06, 8, 8), mat(0xd9b45a, { shininess: 90 }), x + (p.wx ? -.07 : .07), 1.25, 8.6, scena);
   const ins = new THREE.Mesh(new THREE.BoxGeometry(.06, .24, .7), new THREE.MeshBasicMaterial({ color: 0x7cffb2 })); ins.position.set(x, 3.05, 8); scena.add(ins);
   const l = new THREE.PointLight(0x7cffb2, .55, 5); l.position.set(x + (p.wx ? -.6 : .6), 2.8, 8); scena.add(l); });
-// quadri appesi, ciascuno con il suo faretto e il cerchio a terra
+// cornici dorate a gradini, lampada da quadro, alone di luce sulla parete e targhetta
+const oro = mat(0xb08d3c, { shininess: 90, specular: 0xffe2a0, map: trama(128, 128, (x, w, h) => { const r = rng(5); x.fillStyle = '#d2ac58'; x.fillRect(0, 0, w, h);
+  for (let k = 0; k < 600; k++) { x.fillStyle = 'rgba(' + (r() > .5 ? '255,238,180' : '80,50,10') + ',.2)'; x.fillRect(r() * w, r() * h, 2 + r() * 6, 2); } }) });
+const oroScuro = mat(0x6e5320, { shininess: 60, specular: 0xcfa85a });
+const alone = trama(256, 256, (x, w, h) => { const g2 = x.createRadialGradient(128, 96, 8, 128, 128, 128);
+  g2.addColorStop(0, 'rgba(255,226,170,.55)'); g2.addColorStop(.45, 'rgba(255,205,140,.2)'); g2.addColorStop(.75, 'rgba(255,195,125,.06)'); g2.addColorStop(1, 'rgba(255,190,120,0)'); x.fillStyle = g2; x.fillRect(0, 0, w, h); });
+const cartellino = trama(128, 80, (x, w, h) => { x.fillStyle = '#efe8d6'; x.fillRect(0, 0, w, h); x.fillStyle = '#2a2a2a'; x.fillRect(12, 14, 72, 7);
+  x.fillStyle = '#777'; [34, 46, 58].forEach((y, k) => x.fillRect(12, y, 100 - k * 14, 3)); });
+const CUBO = new THREE.BoxGeometry(1, 1, 1), PIANO = new THREE.PlaneGeometry(1, 1);
+function misura(o, a) { const h = Math.min(2.45, 3.3 / a), w = h * a; o.w = w; o.h = h;
+  o.cornice.scale.set(w + .5, h + .5, .14); o.gola.scale.set(w + .36, h + .36, .16); o.bordo.scale.set(w + .2, h + .2, .2); o.filetto.scale.set(w + .07, h + .07, .21);
+  o.tela.scale.set(w, h, 1); o.vuoto.scale.set(w, h, 1); o.glow.scale.set(w + 2.8, h + 2.5, 1); o.glow.position.y = .3;
+  o.lampada.position.y = o.braccio.position.y = h / 2 + .42; o.lampada.scale.y = Math.min(1.3, w * .45);
+  o.etichetta.position.set(w / 2 + .62, -h / 2 + .3, .02); }
+function appendi(x, z, rotY, colore, conFaro) {
+  const gph = new THREE.Group(); gph.position.set(x, 2.1, z); gph.rotation.y = rotY; scena.add(gph);
+  const o = { gph, arte: null };
+  o.glow = new THREE.Mesh(PIANO, new THREE.MeshBasicMaterial({ map: alone, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: .5 })); o.glow.position.z = .012; gph.add(o.glow);
+  o.cornice = pezzo(CUBO, oro, 0, 0, .07, gph); o.gola = pezzo(CUBO, oroScuro, 0, 0, .08, gph); o.bordo = pezzo(CUBO, oro, 0, 0, .1, gph);
+  o.filetto = pezzo(CUBO, colore ? mat(colore, { emissive: colore, emissiveIntensity: .4 }) : oroScuro, 0, 0, .105, gph);
+  o.tela = new THREE.Mesh(PIANO, mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: conFaro ? .1 : .3, shininess: 0 })); o.tela.position.z = .215; gph.add(o.tela);
+  o.vuoto = new THREE.Mesh(PIANO, mat(0x1c2026)); o.vuoto.position.z = .215; o.vuoto.visible = false; gph.add(o.vuoto);
+  o.lampada = pezzo(new THREE.CylinderGeometry(.045, .045, 1, 10), mat(0x8a6a2a, { shininess: 90, specular: 0xffe2a0 }), 0, 0, .42, gph); o.lampada.rotation.z = Math.PI / 2;
+  o.braccio = pezzo(new THREE.BoxGeometry(.04, .04, .4), oroScuro, 0, 0, .2, gph);
+  o.etichetta = new THREE.Mesh(PIANO, mat(0xffffff, { map: cartellino, emissive: 0xffffff, emissiveIntensity: .1 })); o.etichetta.scale.set(.5, .31, 1); gph.add(o.etichetta);
+  misura(o, 4 / 3); return o;
+}
+function vesti(o, tela) { if (o.tela.material.map) o.tela.material.map.dispose();
+  const t = new THREE.CanvasTexture(tela); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
+  o.tela.material.map = o.tela.material.emissiveMap = t; o.tela.material.needsUpdate = true; o.arte = tela; misura(o, tela.width / tela.height); }
+// i sei quadri del gioco: pareti nord e sud, con faretto vero e cerchio a terra
 const Q3 = QUADRI.map((q, i) => {
-  const stanza = i % 3, sopra = i < 3, gph = new THREE.Group(), verso = sopra ? 1 : -1;
-  gph.position.set(CENTRI[stanza] * U, 2.05, sopra ? 1.01 : MH - 1.01); if (!sopra) gph.rotation.y = Math.PI; scena.add(gph);
-  const cornice = pezzo(new THREE.BoxGeometry(3.5, 2.7, .12), mat(q.colore, { shininess: 60 }), 0, 0, .06, gph);
-  const tela = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.4), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: .12, shininess: 0 })); tela.position.z = .125; gph.add(tela);
-  const vuoto = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.4), mat(0x1c2026)); vuoto.position.z = .125; gph.add(vuoto);
-  const barra = new THREE.Mesh(new THREE.BoxGeometry(3.2, .1, .04), new THREE.MeshBasicMaterial({ color: 0xff2d2d })); barra.position.set(0, 1.55, .1); gph.add(barra);
-  const anello = new THREE.Mesh(new THREE.RingGeometry(.74, .86, 48), new THREE.MeshBasicMaterial({ color: q.colore, transparent: true, depthWrite: false }));
-  anello.rotation.x = -Math.PI / 2; anello.position.set(CENTRI[stanza] * U, .02, (sopra ? 78 : 562) * U); scena.add(anello);
-  const faro = new THREE.SpotLight(0xfff0d2, 1.2, 8, .62, .7, 1); faro.position.set(gph.position.x, ALT - .1, gph.position.z + verso * 1.7);
-  faro.target = gph; scena.add(faro);
-  return { cornice, tela, vuoto, barra, anello, faro, arte: null };
+  const stanza = i % 3, sopra = i < 3, o = appendi(CENTRI[stanza] * U, sopra ? 1.01 : MH - 1.01, sopra ? 0 : Math.PI, q.colore, true);
+  o.tinta = new THREE.Color(q.colore);
+  o.barra = new THREE.Mesh(CUBO, new THREE.MeshBasicMaterial({ color: 0xff2d2d })); o.barra.position.z = .25; o.gph.add(o.barra);
+  o.anello = new THREE.Mesh(new THREE.RingGeometry(.74, .86, 48), new THREE.MeshBasicMaterial({ color: q.colore, transparent: true, depthWrite: false }));
+  o.anello.rotation.x = -Math.PI / 2; o.anello.position.set(CENTRI[stanza] * U, .02, (sopra ? 78 : 562) * U); scena.add(o.anello);
+  o.faro = new THREE.SpotLight(0xfff0d2, 1, 8, .62, .7, 1); o.faro.position.set(o.gph.position.x, ALT - .1, o.gph.position.z + (sopra ? 1.7 : -1.7));
+  o.faro.target = o.gph; scena.add(o.faro);
+  return o;
 });
+// le dodici opere alle pareti laterali, due per parete
+{ const posti = []; STANZE.forEach(s => [4, 12].forEach(z => { posti.push([s.x0 + .01, z, Math.PI / 2, 1]); posti.push([s.x1 + .99, z, -Math.PI / 2, -1]); }));
+  DECOR.forEach((d, j) => { const [x, z, rot, dir] = posti[j]; d.o = appendi(x, z, rot, null, false); d.o.gph.visible = false;
+    d.x = (x + dir * .95) * T; d.by = z * T; }); }
+let vicinoD = null;
 const lampo = new THREE.PointLight(0xffffff, 0, 9); scena.add(lampo);
 
 /* modelli: guardano verso +X, poi vengono ruotati secondo la direzione */
@@ -560,7 +660,7 @@ function costruisci() {
   M.custodi = custodi.map(c => { const m = modPersona(c.divisa, c.scuro, false); dinamici.add(m);
     const t = new THREE.SpotLight(0xfff2d0, 1.25, 18, .56, .6, 1.4); t.castShadow = true; t.shadow.mapSize.set(1024, 1024);
     t.shadow.camera.near = .3; t.shadow.camera.far = 18; t.shadow.bias = -.002; dinamici.add(t, t.target);
-    const alone = new THREE.PointLight(0xb4bcff, .22, 5); dinamici.add(alone);
+    const alone = new THREE.PointLight(0xffe2c4, .3, 5); dinamici.add(alone);
     m.userData.torcia = t; m.userData.alone = alone; return m; });
   M.struzzi = struzzi.map(s => { const m = modStruzzo(s.q.colore); m.rotation.y = -s.ang; dinamici.add(m); return m; });
   M.ladro = modPersona('#18181c', '#0c0c10', true); M.ladro.visible = false; dinamici.add(M.ladro);
@@ -575,23 +675,38 @@ function posa(m, o, ang, corsa) {
   const a = Math.sin(o.fase) * corsa; m.userData.gambe[0].rotation.z = a; m.userData.gambe[1].rotation.z = -a;
   if (m.userData.braccia) { m.userData.braccia[0].rotation.z = -a * .7; m.userData.braccia[1].rotation.z = a * .7; }
 }
+let composer = null, passoScena = null, finale = null;
+try {
+  composer = new THREE.EffectComposer(rend, new THREE.WebGLMultisampleRenderTarget(8, 8, { type: THREE.HalfFloatType, format: THREE.RGBAFormat }));
+  passoScena = new THREE.RenderPass(scena, null); composer.addPass(passoScena);
+  composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(8, 8), .42, .7, .78));
+  finale = new THREE.ShaderPass({ uniforms: { tDiffuse: { value: null }, t: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float t; varying vec2 vUv;
+      void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb; c = pow(max(c, 0.0), vec3(1.0 / 2.2));
+        float d = distance(vUv, vec2(.5)); c *= mix(1.0, smoothstep(.85, .28, d), .5);
+        c += (fract(sin(dot(vUv * 913.0 + t, vec2(12.9898, 78.233))) * 43758.5453) - .5) * .028;
+        gl_FragColor = vec4(c, 1.0); }` });
+  composer.addPass(finale);
+} catch (e) { composer = null; }
 let lw = 0, lh = 0;
 function disegna() {
   const w = cv.clientWidth, h = cv.clientHeight; if (!w || !h || !dinamici) return;
-  if (w !== lw || h !== lh) { rend.setSize(w, h, false); lw = w; lh = h; }
+  if (w !== lw || h !== lh) { rend.setSize(w, h, false); if (composer) composer.setSize(w, h); lw = w; lh = h; }
   const lamp = Math.floor(performance.now() / 180) % 2, acceso = luci > 0 ? Math.min(1, luci * 2) : 0;
   const alba = Math.min(1, Math.max(0, (tempo / DURATA - 0.75) * 4));
   ambiente.intensity = .26 + acceso * .75 + alba * .3; ambiente.color.copy(NOTTE).lerp(ALBA, alba);
 
   quadri.forEach((q, i) => { const o = Q3[i], via = q.rubato || q.inMano, sotto = ladro && ladro.q === q && ladro.stato === 'ruba';
-    if (o.arte !== q.arte) { if (o.tela.material.map) o.tela.material.map.dispose();
-      const t = new THREE.CanvasTexture(q.arte); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
-      o.tela.material.map = o.tela.material.emissiveMap = t; o.tela.material.needsUpdate = true; o.arte = q.arte; }
+    if (o.arte !== q.arte) vesti(o, q.arte);
     o.tela.visible = !via; o.vuoto.visible = via;
-    o.cornice.material.emissive.setHex(sotto && lamp ? 0xff0000 : q === vicino ? 0x444444 : 0);
-    o.barra.visible = !!sotto; if (sotto) o.barra.scale.x = Math.max(.01, ladro.t / TEMPO_FURTO);
+    if (sotto && lamp) o.filetto.material.emissive.setHex(0xff0000); else o.filetto.material.emissive.copy(o.tinta);
+    o.glow.material.opacity = via ? .12 : q === vicino ? .85 : .45;
+    o.barra.visible = !!sotto; if (sotto) { o.barra.position.y = -o.h / 2 - .45; o.barra.scale.set(Math.max(.01, o.w * ladro.t / TEMPO_FURTO), .1, .04); }
     o.anello.visible = !q.rubato; o.anello.material.opacity = q.rientrato ? .2 : .9;
-    o.faro.intensity = q.rubato ? .15 : q.rientrato ? .95 : .7; });
+    o.faro.intensity = q.rubato ? .12 : q.rientrato ? .9 : .65; });
+  DECOR.forEach(d => { if (d.arte && d.o.arte !== d.arte) { vesti(d.o, d.arte); d.o.gph.visible = true; }
+    d.o.glow.material.opacity = d === vicinoD ? .85 : .45; });
 
   struzzi.forEach((s, i) => { const m = M.struzzi[i]; m.visible = !s.q.rientrato; if (m.visible) { posa(m, s, s.ang, .55); m.position.y = Math.abs(Math.sin(s.fase)) * .04; } });
   custodi.forEach((c, i) => { const m = M.custodi[i], dx = Math.cos(c.ang), dz = Math.sin(c.ang); posa(m, c, c.ang, .5); m.rotation.y = -c.ang;
@@ -609,7 +724,10 @@ function disegna() {
     V.set(c.x * U - dx * d, 2.25 + (3.7 - d) * .32, c.y * U - dz * d);
     if (!k.userData.pronta) { k.position.copy(V); k.userData.pronta = true; } else k.position.lerp(V, .2);
     k.lookAt(c.x * U + dx * 2.2, 1.3, c.y * U + dz * 2.2); });
-  if (camere.length === 1) { rend.setScissorTest(false); rend.setViewport(0, 0, w, h); camere[0].aspect = w / h; camere[0].updateProjectionMatrix(); rend.render(scena, camere[0]); }
+  if (camere.length === 1) { rend.setScissorTest(false); rend.setViewport(0, 0, w, h); camere[0].aspect = w / h; camere[0].updateProjectionMatrix();
+    if (composer && !salva.semplice) { try { passoScena.camera = camere[0]; finale.uniforms.t.value = performance.now() % 1000 / 1000; composer.render(); }
+      catch (e) { composer = null; rend.setRenderTarget(null); rend.render(scena, camere[0]); } }
+    else rend.render(scena, camere[0]); }
   else camere.forEach((k, i) => { const x0 = i * w / 2; rend.setScissorTest(true); rend.setViewport(x0, 0, w / 2, h); rend.setScissor(x0 + i, 0, w / 2 - 1, h);
     k.aspect = w / 2 / h; k.updateProjectionMatrix(); rend.render(scena, k); });
   radar(lamp);
@@ -641,14 +759,15 @@ function ciclo(t) {
 }
 
 /* ---------- comandi e schermate ---------- */
-function datiOpera(q) { return [q.anno, q.tecnica].filter(Boolean).join(' · '); }
+function datiOpera(q) { return [q.autore, q.anno, q.tecnica, q.luogo].filter(Boolean).join(' · '); }
 function guarda() {
-  if (stato !== 'gioco' || !vicino) return;
+  const v = vicino || vicinoD;
+  if (stato !== 'gioco' || !v) return;
   stato = 'vista'; $('tocchi').style.display = 'none';
-  const t = $('tela'); t.getContext('2d').drawImage(vicino.arte, 0, 0);
-  t.style.borderColor = vicino.colore;
-  $('tTitolo').textContent = vicino.titolo; $('tDati').textContent = datiOpera(vicino);
-  $('tNota').textContent = vicino.rientrato ? (vicino.testo || 'Lo struzzo è al suo posto.') : 'Manca qualcuno… riporta lo struzzo per leggere la scheda.';
+  const t = $('tela'); t.width = v.arte.width; t.height = v.arte.height; t.getContext('2d').drawImage(v.arte, 0, 0);
+  t.style.borderColor = v.colore || '#b08d3c';
+  $('tTitolo').textContent = v.titolo; $('tDati').textContent = datiOpera(v);
+  $('tNota').textContent = v.decor ? (v.testo || '') : v.rientrato ? (v.testo || 'Lo struzzo è al suo posto.') : 'Manca qualcuno… riporta lo struzzo per leggere la scheda.';
   $('vista').classList.add('on');
 }
 function chiudi() { $('vista').classList.remove('on'); stato = 'gioco'; }
@@ -678,6 +797,7 @@ addEventListener('keydown', e => {
     else if (k === 'Enter' && !$('catalogo').classList.contains('on')) avvia();
   }
   if (k === 'q') accendi();
+  if (k === 'g') { salva.semplice = !salva.semplice; registra(); messaggio(salva.semplice ? 'Grafica semplice' : 'Grafica completa'); }
   if (k === 'm') muto();
   if (k === 'Escape') { if (stato === 'vista') chiudi(); $('catalogo').classList.remove('on'); }
 });
