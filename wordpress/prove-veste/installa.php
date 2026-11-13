@@ -59,6 +59,21 @@ foreach ( $articoli as $nome => $d ) {
 $ids['gym']  = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Gym', 'post_content' => 'testo comune arte palestra' ) );
 $ids['info'] = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Info', 'post_content' => 'testo comune arte info' ) );
 
+/* le versioni inglesi: H di D, I di E (un minuto dopo l'originale), la pagina About di Info */
+foreach ( array( 'H' => array( 'D', 'H-english-merz', '2026-10-14 10:01:00' ), 'I' => array( 'E', 'I-english-kandinsky', '2026-11-10 10:01:00' ) ) as $sigla => $d ) {
+	$ids[ $sigla ] = wp_insert_post( array( 'post_type' => 'post', 'post_status' => 'publish', 'post_title' => $d[1], 'post_name' => strtolower( $d[1] ), 'post_content' => 'testo comune arte english ' . $d[1], 'post_date' => $d[2], 'post_author' => 1, 'post_category' => array( $cat['mostre'] ) ) );
+	update_post_meta( $ids[ $sigla ], 'caa_versione_inglese_di', $ids[ $d[0] ] );
+}
+$ids['about'] = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'About', 'post_content' => 'testo comune arte english about' ) );
+update_post_meta( $ids['about'], 'caa_versione_inglese_di', $ids['info'] );
+
+/* il menu principale con tutte le pagine, come sul sito (che le aggiunge da sé); il menu del telefono resta l'elenco di pagine del tema */
+$menu = wp_create_nav_menu( 'Principale' );
+foreach ( array( 'gym', 'info', 'about' ) as $pagina ) {
+	wp_update_nav_menu_item( $menu, 0, array( 'menu-item-object-id' => $ids[ $pagina ], 'menu-item-object' => 'page', 'menu-item-type' => 'post_type', 'menu-item-status' => 'publish' ) );
+}
+set_theme_mod( 'nav_menu_locations', array( 'primary-menu' => $menu ) );
+
 update_option( 'sticky_posts', array( $ids['B'] ) );
 update_option( 'sidebars_widgets', array( 'wp_inactive_widgets' => array(), 'sidebar' => array( 'block-12', 'block-2', 'block-3', 'block-8', 'block-2', 'block-3', 'block-8' ), 'array_version' => 3 ) );
 set_theme_mod( 'custom_logo', 123 );   // un logo qualsiasi, per provare «nome al posto del logo»

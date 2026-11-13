@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       Contemporary Art — veste grafica
- * Description:       Veste "white cube" sopra il tema Koji e interruttore che mostra al pubblico solo i contenuti d'arte. Si regola da Impostazioni → Contemporary Art; disattivando il plugin il sito torna com'era.
- * Version:           1.2.0
+ * Description:       Veste "white cube" sopra il tema Koji, interruttore che mostra al pubblico solo i contenuti d'arte, articoli in italiano e in inglese. Si regola da Impostazioni → Contemporary Art; disattivando il plugin il sito torna com'era.
+ * Version:           1.3.1
  * Requires at least: 5.6
  * Requires PHP:      7.0
  * License:           MIT
@@ -13,13 +13,31 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CAA_VERSIONE', '1.2.0' );
+define( 'CAA_VERSIONE', '1.3.1' );
 
-/** Le opzioni (veste, logo_testo, solo_arte, fuori_dai_motori): tutte accese finché non si spengono da Impostazioni → Contemporary Art. */
+/** Le spunte (veste, logo_testo, solo_arte, fuori_dai_motori, bilingue): tutte accese finché non si spengono da Impostazioni → Contemporary Art. */
 function caa_opzione( $nome ) {
 	$salvate = get_option( 'caa_opzioni', array() );
 	return isset( $salvate[ $nome ] ) ? (int) $salvate[ $nome ] : 1;
 }
+
+/** Le due frasi che dicono a chi cerca che cos'è il sito: finiscono nella descrizione per i motori di ricerca della home italiana e di quella inglese. */
+function caa_testi_predefiniti() {
+	return array(
+		'descrizione_it' => 'Contemporary Art promuove la conoscenza dell’arte internazionale: mostre, artisti e opere raccontati con chiarezza, in italiano e in inglese.',
+		'descrizione_en' => 'Contemporary Art promotes knowledge of international art: exhibitions, artists and artworks explained clearly, in English and Italian.',
+	);
+}
+function caa_testo( $nome ) {
+	$salvate = get_option( 'caa_opzioni', array() );
+	if ( isset( $salvate[ $nome ] ) && is_string( $salvate[ $nome ] ) ) {
+		return $salvate[ $nome ];                      // anche vuoto: vuol dire «lascia la descrizione di prima»
+	}
+	$predefiniti = caa_testi_predefiniti();
+	return isset( $predefiniti[ $nome ] ) ? $predefiniti[ $nome ] : '';
+}
+
+require_once __DIR__ . '/lingue.php';
 
 /** Pagine che parlano d'altro (vecchio blog): con "solo arte" spariscono da menu ed elenchi, ma restano raggiungibili dal loro indirizzo. */
 function caa_pagine_escluse() {
@@ -38,8 +56,8 @@ function caa_categorie_arte() {
 /* ---------- veste grafica ---------- */
 
 function caa_stile() {
-	if ( ! caa_opzione( 'veste' ) && ! caa_opzione( 'solo_arte' ) ) {
-		return;                                         // le regole sono tutte sotto body.caa-veste o body.caa-solo-arte
+	if ( ! caa_opzione( 'veste' ) && ! caa_opzione( 'solo_arte' ) && ! caa_bilingue() ) {
+		return;                                         // le regole sono tutte sotto body.caa-veste o body.caa-solo-arte, più i link fra le lingue
 	}
 	$dopo = wp_style_is( 'koji-style', 'registered' ) ? array( 'koji-style' ) : array();
 	wp_enqueue_style( 'caa-veste', plugins_url( 'stile.css', __FILE__ ), $dopo, CAA_VERSIONE );
@@ -52,6 +70,9 @@ function caa_classi_body( $classi ) {
 	}
 	if ( caa_opzione( 'solo_arte' ) ) {
 		$classi[] = 'caa-solo-arte';
+	}
+	if ( caa_in_inglese() ) {
+		$classi[] = 'caa-en';
 	}
 	return $classi;
 }
@@ -74,17 +95,19 @@ add_filter( 'theme_mod_custom_logo', 'caa_senza_logo' );
 
 /* ---------- solo arte ---------- */
 
-function caa_filtro_attivo() {
-	if ( ! caa_opzione( 'solo_arte' ) ) {
-		return false;
-	}
+/** Vero quando si compone una pagina per il pubblico. Pannello, editor, Jetpack, cron e riga di comando vedono sempre tutto. */
+function caa_pubblico() {
 	if ( ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST ) || ( defined( 'WP_CLI' ) && WP_CLI ) || wp_doing_cron() ) {
-		return false;                                   // l'editor, Jetpack e gli strumenti di gestione vedono sempre tutto
+		return false;
 	}
 	if ( is_admin() ) {
 		return wp_doing_ajax() && isset( $_REQUEST['action'] ) && 'koji_ajax_load_more' === $_REQUEST['action'];   // phpcs:ignore -- solo il "carica altri" del tema
 	}
 	return true;
+}
+
+function caa_filtro_attivo() {
+	return caa_opzione( 'solo_arte' ) && caa_pubblico();
 }
 
 /**
@@ -108,9 +131,9 @@ function caa_articoli_nascosti() {
 	return $nascosti;
 }
 
-/** Elenchi di articoli (home, archivi, ricerca, feed, "articoli recenti", correlati del tema): fuori quelli nascosti. */
+/** Elenchi di articoli (home, archivi, ricerca, feed, "articoli recenti", correlati del tema): fuori quelli nascosti e quelli nell'altra lingua. */
 function caa_segna_richiesta( $q ) {
-	if ( ! caa_filtro_attivo() ) {
+	if ( ! caa_pubblico() ) {
 		return;
 	}
 	if ( $q->is_singular() || $q->get( 'p' ) || $q->get( 'name' ) || $q->get( 'page_id' ) || $q->get( 'pagename' ) || $q->get( 'post__in' ) ) {
@@ -120,9 +143,22 @@ function caa_segna_richiesta( $q ) {
 	if ( $tipo && 'any' !== $tipo && 'post' !== $tipo && ! ( is_array( $tipo ) && in_array( 'post', $tipo, true ) ) ) {
 		return;                                         // menu, pagine, immagini: non si toccano
 	}
-	$via = caa_articoli_nascosti();
-	if ( $q->is_search() ) {
-		$via = array_merge( $via, caa_pagine_escluse() );
+	$via = array();
+	if ( caa_opzione( 'solo_arte' ) ) {
+		$via = caa_articoli_nascosti();
+		if ( $q->is_search() ) {
+			$via = array_merge( $via, caa_pagine_escluse() );
+		}
+	}
+	if ( caa_bilingue() ) {
+		if ( $q->get( 'caa_en' ) || caa_in_inglese() ) {
+			// Si legge in inglese: solo ciò che è in inglese. post__in ha la precedenza su post__not_in, che quindi si sottrae a mano.
+			$solo = array_diff( caa_inglesi(), $via, array_map( 'intval', (array) $q->get( 'post__not_in' ) ) );
+			$q->set( 'post__in', $solo ? array_values( $solo ) : array( 0 ) );
+			$q->set( 'ignore_sticky_posts', true );
+			return;
+		}
+		$via = array_merge( $via, caa_inglesi() );
 	}
 	if ( $via ) {
 		$q->set( 'post__not_in', array_merge( (array) $q->get( 'post__not_in' ), $via ) );
@@ -132,7 +168,14 @@ add_action( 'pre_get_posts', 'caa_segna_richiesta' );
 
 /** Ricerca di Relevanssi: seconda sicura, nel caso un altro plugin riscriva la richiesta. */
 function caa_relevanssi( $va_bene, $id ) {
-	if ( $va_bene && caa_filtro_attivo() && ( in_array( (int) $id, caa_articoli_nascosti(), true ) || in_array( (int) $id, caa_pagine_escluse(), true ) ) ) {
+	if ( ! $va_bene || ! caa_pubblico() ) {
+		return $va_bene;
+	}
+	$id = (int) $id;
+	if ( caa_opzione( 'solo_arte' ) && ( in_array( $id, caa_articoli_nascosti(), true ) || in_array( $id, caa_pagine_escluse(), true ) ) ) {
+		return false;
+	}
+	if ( caa_bilingue() && caa_in_inglese() !== caa_e_inglese( $id ) ) {
 		return false;
 	}
 	return $va_bene;
@@ -141,7 +184,17 @@ add_filter( 'relevanssi_post_ok', 'caa_relevanssi', 20, 2 );
 
 /** "Articolo precedente / successivo" in fondo a un articolo. */
 function caa_vicini( $dove ) {
-	$via = caa_filtro_attivo() ? caa_articoli_nascosti() : array();
+	if ( ! caa_pubblico() ) {
+		return $dove;
+	}
+	$via = caa_opzione( 'solo_arte' ) ? caa_articoli_nascosti() : array();
+	if ( caa_bilingue() ) {
+		$inglesi = caa_inglesi();
+		if ( caa_in_inglese() ) {
+			return $dove . ' AND p.ID IN (' . implode( ',', $inglesi ? $inglesi : array( 0 ) ) . ')';
+		}
+		$via = array_merge( $via, $inglesi );
+	}
 	return $via ? $dove . ' AND p.ID NOT IN (' . implode( ',', $via ) . ')' : $dove;
 }
 add_filter( 'get_previous_post_where', 'caa_vicini' );
@@ -149,18 +202,31 @@ add_filter( 'get_next_post_where', 'caa_vicini' );
 
 /** "Correlati" di Jetpack: si chiede di escluderli e, per sicurezza, si tolgono anche dalla risposta. */
 function caa_correlati_esclusi( $esclusi ) {
-	return caa_filtro_attivo() ? array_merge( (array) $esclusi, caa_articoli_nascosti() ) : $esclusi;
+	if ( ! caa_pubblico() ) {
+		return $esclusi;
+	}
+	$esclusi = (array) $esclusi;
+	if ( caa_opzione( 'solo_arte' ) ) {
+		$esclusi = array_merge( $esclusi, caa_articoli_nascosti() );
+	}
+	if ( caa_bilingue() && ! caa_in_inglese() ) {
+		$esclusi = array_merge( $esclusi, caa_inglesi() );
+	}
+	return $esclusi;
 }
 add_filter( 'jetpack_relatedposts_filter_exclude_post_ids', 'caa_correlati_esclusi' );
 
 function caa_correlati( $risultati ) {
-	if ( ! is_array( $risultati ) || ! caa_filtro_attivo() ) {
+	if ( ! is_array( $risultati ) || ! caa_pubblico() ) {
 		return $risultati;
 	}
-	$via    = caa_articoli_nascosti();
-	$tenuti = array();
+	$via     = caa_opzione( 'solo_arte' ) ? caa_articoli_nascosti() : array();
+	$due     = caa_bilingue();
+	$inglese = $due && caa_in_inglese();
+	$tenuti  = array();
 	foreach ( $risultati as $uno ) {
-		if ( ! is_array( $uno ) || ! isset( $uno['id'] ) || ! in_array( (int) $uno['id'], $via, true ) ) {
+		$id = ( is_array( $uno ) && isset( $uno['id'] ) ) ? (int) $uno['id'] : 0;
+		if ( ! $id || ( ! in_array( $id, $via, true ) && ( ! $due || caa_e_inglese( $id ) === $inglese ) ) ) {
 			$tenuti[] = $uno;
 		}
 	}
@@ -261,42 +327,102 @@ function caa_senza_doppioni( $aree ) {
 }
 add_filter( 'sidebars_widgets', 'caa_senza_doppioni' );
 
-/** Voci di menu ed elenchi di pagine: via quelle che parlano d'altro. */
+/** Voci di menu: via le pagine che parlano d'altro; leggendo in inglese, ogni pagina prende titolo e indirizzo della sua versione inglese. */
 function caa_menu( $voci ) {
-	if ( ! caa_filtro_attivo() ) {
+	if ( ! caa_pubblico() ) {
 		return $voci;
 	}
-	$escluse = caa_pagine_escluse();
+	$escluse = caa_opzione( 'solo_arte' ) ? caa_pagine_escluse() : array();
+	$due     = caa_bilingue();
+	$inglese = $due && caa_in_inglese();
 	foreach ( $voci as $chiave => $voce ) {
-		if ( 'page' === $voce->object && in_array( (int) $voce->object_id, $escluse, true ) ) {
-			unset( $voci[ $chiave ] );
+		if ( 'page' !== $voce->object && 'post' !== $voce->object ) {
+			continue;
+		}
+		$id = (int) $voce->object_id;
+		if ( in_array( $id, $escluse, true ) || ( $due && caa_e_inglese( $id ) ) ) {
+			unset( $voci[ $chiave ] );                  // le versioni inglesi non hanno una voce loro: prendono il posto dell'originale
+			continue;
+		}
+		$versione = $inglese ? caa_gemello( $id ) : 0;
+		if ( $versione ) {
+			$voce->title = get_the_title( $versione );
+			$voce->url   = get_permalink( $versione );
+			if ( is_singular() && (int) get_queried_object_id() === $versione ) {
+				$voce->current   = true;
+				$voce->classes[] = 'current-menu-item';
+			}
 		}
 	}
 	return $voci;
 }
 add_filter( 'wp_nav_menu_objects', 'caa_menu' );
 
+/**
+ * Elenchi di pagine (indice della pagina Info, menu del telefono): via quelle che parlano d'altro; le versioni inglesi
+ * non compaiono da sole ma, leggendo in inglese, prendono il posto dell'originale.
+ */
 function caa_elenco_pagine( $pagine ) {
-	if ( ! caa_filtro_attivo() ) {
+	if ( ! caa_pubblico() ) {
 		return $pagine;
 	}
-	$escluse = caa_pagine_escluse();
+	$escluse = caa_opzione( 'solo_arte' ) ? caa_pagine_escluse() : array();
+	$due     = caa_bilingue();
+	$inglese = $due && caa_in_inglese();
 	$tenute  = array();
 	foreach ( (array) $pagine as $pagina ) {
-		if ( ! in_array( (int) $pagina->ID, $escluse, true ) ) {
-			$tenute[] = $pagina;
+		if ( in_array( (int) $pagina->ID, $escluse, true ) || ( $due && caa_e_inglese( $pagina->ID ) ) ) {
+			continue;
 		}
+		$versione = $inglese ? caa_gemello( $pagina->ID ) : 0;   // attenzione: get_post( 0 ) restituirebbe l'articolo corrente
+		$versione = $versione ? get_post( $versione ) : null;
+		$tenute[] = $versione ? $versione : $pagina;
 	}
 	return $tenute;
 }
 add_filter( 'get_pages', 'caa_elenco_pagine' );
 
+/* ---------- per i motori di ricerca ---------- */
+
+/**
+ * Descrizione della pagina (Yoast SEO): sulla home, la frase che dice che cos'è il sito, nella lingua della pagina;
+ * su articoli e pagine senza una descrizione scritta a mano, il riassunto.
+ */
+function caa_descrizione( $testo ) {
+	if ( is_home() && ! is_paged() ) {
+		$mia = caa_testo( caa_in_inglese() ? 'descrizione_en' : 'descrizione_it' );
+		return '' !== $mia ? $mia : $testo;
+	}
+	if ( '' === trim( (string) $testo ) && is_singular() && ! post_password_required( get_queried_object_id() ) ) {
+		$riassunto = trim( wp_strip_all_tags( (string) get_post_field( 'post_excerpt', get_queried_object_id() ) ) );
+		if ( '' !== $riassunto ) {
+			return $riassunto;
+		}
+	}
+	return $testo;
+}
+add_filter( 'wpseo_metadesc', 'caa_descrizione' );
+add_filter( 'wpseo_opengraph_desc', 'caa_descrizione' );
+add_filter( 'wpseo_twitter_description', 'caa_descrizione' );
+
+/** Le pagine si leggono in https: anche l'indirizzo canonico deve dirlo (la home e alcuni articoli lo dichiaravano ancora in http). */
+function caa_indirizzo_sicuro( $url ) {
+	return ( is_string( $url ) && '' !== $url && is_ssl() ) ? set_url_scheme( $url, 'https' ) : $url;
+}
+add_filter( 'wpseo_canonical', 'caa_indirizzo_sicuro', 5 );
+add_filter( 'wpseo_opengraph_url', 'caa_indirizzo_sicuro', 5 );
+
 /* ---------- pagina delle impostazioni ---------- */
 
 function caa_pulisci_opzioni( $valori ) {
 	$pulite = array();
-	foreach ( array( 'veste', 'logo_testo', 'solo_arte', 'fuori_dai_motori' ) as $nome ) {
+	foreach ( array( 'veste', 'logo_testo', 'solo_arte', 'fuori_dai_motori', 'bilingue' ) as $nome ) {
 		$pulite[ $nome ] = empty( $valori[ $nome ] ) ? 0 : 1;
+	}
+	foreach ( array_keys( caa_testi_predefiniti() ) as $nome ) {
+		if ( isset( $valori[ $nome ] ) ) {
+			$pulite[ $nome ] = mb_substr( sanitize_text_field( $valori[ $nome ] ), 0, 320 );
+		}
 	}
 	return $pulite;
 }
@@ -343,6 +469,24 @@ function caa_pagina_impostazioni() {
 						<p class="description">Vale solo con «Solo arte» acceso. Gli indirizzi continuano a funzionare per chi li ha; togliendo la spunta tornano indicizzabili, ma ai motori servono alcune settimane per accorgersene.</p>
 					</td>
 				</tr>
+				<tr>
+					<th scope="row">Due lingue</th>
+					<td>
+						<label><input type="checkbox" name="caa_opzioni[bilingue]" value="1" <?php checked( caa_opzione( 'bilingue' ) ); ?>> Tieni separate le versioni italiana e inglese degli articoli</label>
+						<p class="description">La versione inglese di un articolo è un articolo a sé, abbinato all'originale. In italiano si vedono solo gli articoli italiani; quelli inglesi stanno sotto <code>/en/</code>. Le due versioni si rimandano l'una all'altra, anche per i motori di ricerca (hreflang).</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="caa-descrizione-it">Che cos'è il sito (italiano)</label></th>
+					<td>
+						<input type="text" class="large-text" id="caa-descrizione-it" name="caa_opzioni[descrizione_it]" maxlength="320" value="<?php echo esc_attr( caa_testo( 'descrizione_it' ) ); ?>">
+						<p class="description">La frase che i motori di ricerca mostrano sotto il nome del sito. Meglio entro 155 caratteri.</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="caa-descrizione-en">Che cos'è il sito (inglese)</label></th>
+					<td><input type="text" class="large-text" id="caa-descrizione-en" name="caa_opzioni[descrizione_en]" maxlength="320" value="<?php echo esc_attr( caa_testo( 'descrizione_en' ) ); ?>"></td>
+				</tr>
 			</table>
 			<?php submit_button(); ?>
 		</form>
@@ -355,3 +499,10 @@ function caa_link_impostazioni( $link ) {
 	return $link;
 }
 add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'caa_link_impostazioni' );
+
+/** Disattivando il plugin spariscono anche gli indirizzi sotto /en/: WordPress ricostruisce le sue regole alla prima visita. */
+function caa_alla_disattivazione() {
+	delete_option( 'caa_regole' );
+	delete_option( 'rewrite_rules' );
+}
+register_deactivation_hook( __FILE__, 'caa_alla_disattivazione' );

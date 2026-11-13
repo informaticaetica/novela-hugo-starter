@@ -12,10 +12,11 @@ foreach ( array( 'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'A
 	define( $k, 'prova-' . $k );
 }
 $table_prefix = 'wp_';
+define( 'WPLANG', 'it_IT' );                       // il sito vero è in italiano
 define( 'WP_DEBUG', true );
 define( 'WP_DEBUG_DISPLAY', true );
-define( 'WP_HOME', 'http://prova.test' );
-define( 'WP_SITEURL', 'http://prova.test' );
+define( 'WP_HOME', getenv( 'PROVA_HOME' ) ? getenv( 'PROVA_HOME' ) : 'http://prova.test' );   // le prove via HTTP girano su 127.0.0.1
+define( 'WP_SITEURL', WP_HOME );
 define( 'DISABLE_WP_CRON', true );
 define( 'WP_HTTP_BLOCK_EXTERNAL', true );
 define( 'AUTOMATIC_UPDATER_DISABLED', true );

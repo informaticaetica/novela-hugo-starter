@@ -192,3 +192,11 @@ body.caa-veste .entry-content .caa-indice li::before { content: none; }
 @media ( min-width: 700px ) {
 	body.caa-veste .entry-content .caa-indice { column-gap: 5rem; columns: 2; }
 }
+
+/* --- due lingue: link all'altra versione in cima al testo, voce per cambiare lingua in fondo al menu --- */
+.entry-content .caa-altra-lingua {
+	font-size: 1.2rem; font-weight: 600; letter-spacing: .12em; line-height: 1.4; margin: 0 0 3.2rem; text-transform: uppercase;
+}
+body.caa-veste .entry-content .caa-altra-lingua a { text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: .15em; }
+body.caa-veste .site-nav li.caa-lingua,
+body.caa-veste .mobile-menu li.caa-lingua { color: var(--caa-grigio); margin-top: 2.6em; }
