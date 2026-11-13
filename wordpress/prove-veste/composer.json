@@ -1,0 +1,10 @@
+{
+  "description": "WordPress usa e getta (su SQLite) per provare il plugin Contemporary Art — veste grafica",
+  "require": {
+    "johnpbloch/wordpress-core": "^6.8",
+    "aaemnnosttv/wp-sqlite-db": "^1.3"
+  },
+  "config": {
+    "allow-plugins": false
+  }
+}
