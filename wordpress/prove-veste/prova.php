@@ -108,5 +108,27 @@ verifica( 'classi del body', implode( ' ', array_values( array_intersect( get_bo
 do_action( 'wp_enqueue_scripts' );
 verifica( 'foglio di stile in coda', wp_style_is( 'caa-veste', 'enqueued' ), true );
 
+verifica( 'nome al posto del logo (il pannello vede il logo)', (int) get_theme_mod( 'custom_logo' ), 'admin' === $modo ? 123 : 0 );
+
+/* fuori dai motori di ricerca: si finge di essere su una pagina e si guarda l'etichetta per i motori */
+function noindex_su( $richiesta ) {
+	global $wp_query, $wp_the_query;
+	$wp_query     = new WP_Query();
+	$wp_the_query = $wp_query;
+	$wp_query->query( $richiesta );
+	$robots = apply_filters( 'wp_robots', array( 'max-image-preview' => 'large' ) );
+	return ! empty( $robots['noindex'] ) && 'noindex, follow' === apply_filters( 'wpseo_robots', 'index, follow' );
+}
+$acceso = 'spento' !== $modo;
+verifica( 'noindex: articolo nascosto', noindex_su( array( 'p' => $I['A'] ) ), $acceso );
+verifica( 'noindex: pagina esclusa', noindex_su( array( 'page_id' => $I['gym'] ) ), $acceso );
+verifica( 'noindex: archivio rimasto vuoto', noindex_su( array( 'category_name' => 'marketing' ) ), 'pubblico' === $modo );
+verifica( 'indicizzabile: articolo d\'arte', noindex_su( array( 'p' => $I['D'] ) ), false );
+verifica( 'indicizzabile: vecchio articolo in «mostre»', noindex_su( array( 'p' => $I['C'] ) ), false );
+verifica( 'indicizzabile: pagina Info', noindex_su( array( 'page_id' => $I['info'] ) ), false );
+verifica( 'indicizzabile: categoria mostre', noindex_su( array( 'category_name' => 'mostre' ) ), false );
+verifica( 'indicizzabile: home', noindex_su( array() ), false );
+verifica( 'mappa del sito di Yoast: esclusi', sigle( apply_filters( 'wpseo_exclude_from_sitemap_by_post_ids', array() ) ), $acceso ? 'A B F gym' : '' );
+
 echo $ko ? "\n$ko PROVE FALLITE ($modo)\n" : "\ntutte superate ($modo)\n";
 exit( $ko ? 1 : 0 );

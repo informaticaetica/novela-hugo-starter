@@ -22,6 +22,16 @@ body.caa-veste textarea:focus-visible { outline: 2px solid var(--caa-blu); outli
 
 /* --- intestazione laterale: logo, motto, menu --- */
 body.caa-veste .custom-logo-link img { height: auto; max-width: 21rem; }
+/* senza logo: il nome del sito composto come un'insegna, su due righe */
+body.caa-veste .site-title {
+	font-size: 2.6rem; font-weight: 700; letter-spacing: -.035em; line-height: .96; max-width: 7.2em;
+}
+body.caa-veste .site-title a { color: var(--caa-nero); text-decoration: none; }
+body.caa-veste .site-title a:hover,
+body.caa-veste .site-title a:focus { color: var(--caa-blu); }
+@media ( min-width: 1000px ) {
+	body.caa-veste .site-title { font-size: 3.8rem; }
+}
 body.caa-veste .site-description {
 	color: var(--caa-grigio); font-size: 1.15rem; font-weight: 600; letter-spacing: .14em;
 	line-height: 1.7; max-width: 24rem; text-transform: uppercase;
@@ -167,3 +177,18 @@ body.caa-veste.page-id-34 .featured-media { display: none; }
 /* Stessi widget ripetuti due volte nella colonna: resta il primo. */
 body.caa-veste .sidebar-widgets .widget_search ~ .widget_search,
 body.caa-veste .sidebar-widgets .widget:has( .wp-block-latest-posts ) ~ .widget:has( .wp-block-latest-posts ) { display: none; }
+
+/* --- indice (pagina Artisti): lettere grandi, nomi in colonna, niente pallini --- */
+body.caa-veste .entry-content .caa-indice { margin-top: 5rem; }
+body.caa-veste .entry-content .caa-indice h2 {
+	border-top: 1px solid var(--caa-nero); break-after: avoid; font-size: 4.4rem; letter-spacing: -.04em;
+	line-height: 1; margin: 0 0 1.2rem; padding-top: 1rem;
+}
+body.caa-veste .entry-content .caa-indice ul {
+	break-inside: avoid; font-size: 1.7rem; line-height: 1.3; list-style: none; margin: 0 0 4rem; padding: 0;
+}
+body.caa-veste .entry-content .caa-indice li { margin: 0 0 .55em; padding: 0; }
+body.caa-veste .entry-content .caa-indice li::before { content: none; }
+@media ( min-width: 700px ) {
+	body.caa-veste .entry-content .caa-indice { column-gap: 5rem; columns: 2; }
+}

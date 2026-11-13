@@ -61,5 +61,6 @@ $ids['info'] = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'p
 
 update_option( 'sticky_posts', array( $ids['B'] ) );
 update_option( 'sidebars_widgets', array( 'wp_inactive_widgets' => array(), 'sidebar' => array( 'block-12', 'block-2', 'block-3', 'block-8', 'block-2', 'block-3', 'block-8' ), 'array_version' => 3 ) );
+set_theme_mod( 'custom_logo', 123 );   // un logo qualsiasi, per provare «nome al posto del logo»
 update_option( 'prova_ids', $ids );
 echo 'installato: ', json_encode( $ids ), "\n";

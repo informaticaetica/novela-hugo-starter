@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Contemporary Art — veste grafica
  * Description:       Veste "white cube" sopra il tema Koji e interruttore che mostra al pubblico solo i contenuti d'arte. Si regola da Impostazioni → Contemporary Art; disattivando il plugin il sito torna com'era.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Requires at least: 5.6
  * Requires PHP:      7.0
  * License:           MIT
@@ -13,9 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CAA_VERSIONE', '1.1.0' );
+define( 'CAA_VERSIONE', '1.2.0' );
 
-/** Le due opzioni, entrambe accese finché non si spengono da Impostazioni → Contemporary Art. */
+/** Le opzioni (veste, logo_testo, solo_arte, fuori_dai_motori): tutte accese finché non si spengono da Impostazioni → Contemporary Art. */
 function caa_opzione( $nome ) {
 	$salvate = get_option( 'caa_opzioni', array() );
 	return isset( $salvate[ $nome ] ) ? (int) $salvate[ $nome ] : 1;
@@ -62,6 +62,15 @@ function caa_senza_immagine_di_riserva( $valore ) {
 	return caa_opzione( 'veste' ) ? true : $valore;
 }
 add_filter( 'theme_mod_koji_disable_fallback_image', 'caa_senza_immagine_di_riserva' );
+
+/** Al posto dell'immagine del logo il tema scrive il nome del sito, che la veste compone in caratteri. Il logo resta salvato: nel pannello non cambia nulla. */
+function caa_senza_logo( $logo ) {
+	if ( is_admin() || is_customize_preview() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ! caa_opzione( 'veste' ) || ! caa_opzione( 'logo_testo' ) ) {
+		return $logo;
+	}
+	return false;
+}
+add_filter( 'theme_mod_custom_logo', 'caa_senza_logo' );
 
 /* ---------- solo arte ---------- */
 
@@ -196,6 +205,48 @@ function caa_categorie( $termini, $tassonomie, $args ) {
 }
 add_filter( 'get_terms', 'caa_categorie', 10, 3 );
 
+/* ---------- fuori dai motori di ricerca ---------- */
+
+/** Vero sulle pagine che i motori non devono più indicizzare: articoli e pagine nascosti, archivi rimasti vuoti. */
+function caa_da_non_indicizzare() {
+	if ( ! caa_opzione( 'solo_arte' ) || ! caa_opzione( 'fuori_dai_motori' ) ) {
+		return false;
+	}
+	if ( is_singular() ) {
+		$id = (int) get_queried_object_id();
+		return in_array( $id, caa_articoli_nascosti(), true ) || in_array( $id, caa_pagine_escluse(), true );
+	}
+	global $wp_query;
+	return ( is_category() || is_tag() || is_date() || is_author() ) && $wp_query && 0 === (int) $wp_query->post_count;
+}
+
+function caa_robots( $robots ) {
+	if ( is_array( $robots ) && caa_da_non_indicizzare() ) {
+		unset( $robots['index'] );
+		$robots['noindex'] = true;
+		if ( empty( $robots['nofollow'] ) ) {
+			$robots['follow'] = true;
+		}
+	}
+	return $robots;
+}
+add_filter( 'wp_robots', 'caa_robots', 999 );
+
+/** Yoast SEO compone da sé l'etichetta per i motori: gli si dà la stessa risposta. */
+function caa_robots_yoast( $robots ) {
+	return caa_da_non_indicizzare() ? 'noindex, follow' : $robots;
+}
+add_filter( 'wpseo_robots', 'caa_robots_yoast', 999 );
+
+/** …e si tolgono gli stessi contenuti dalla mappa del sito di Yoast. */
+function caa_fuori_dalla_mappa( $esclusi ) {
+	if ( ! caa_opzione( 'solo_arte' ) || ! caa_opzione( 'fuori_dai_motori' ) ) {
+		return $esclusi;
+	}
+	return array_values( array_unique( array_merge( array_map( 'intval', (array) $esclusi ), caa_articoli_nascosti(), caa_pagine_escluse() ) ) );
+}
+add_filter( 'wpseo_exclude_from_sitemap_by_post_ids', 'caa_fuori_dalla_mappa' );
+
 /** Il tema stampa due volte gli stessi widget quando l'elenco salvato contiene doppioni: se ne tiene uno. */
 function caa_senza_doppioni( $aree ) {
 	if ( is_admin() || ! is_array( $aree ) || ! caa_opzione( 'veste' ) || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
@@ -243,10 +294,11 @@ add_filter( 'get_pages', 'caa_elenco_pagine' );
 /* ---------- pagina delle impostazioni ---------- */
 
 function caa_pulisci_opzioni( $valori ) {
-	return array(
-		'veste'     => empty( $valori['veste'] ) ? 0 : 1,
-		'solo_arte' => empty( $valori['solo_arte'] ) ? 0 : 1,
-	);
+	$pulite = array();
+	foreach ( array( 'veste', 'logo_testo', 'solo_arte', 'fuori_dai_motori' ) as $nome ) {
+		$pulite[ $nome ] = empty( $valori[ $nome ] ) ? 0 : 1;
+	}
+	return $pulite;
 }
 function caa_registra_opzioni() {
 	register_setting( 'caa', 'caa_opzioni', array( 'type' => 'array', 'sanitize_callback' => 'caa_pulisci_opzioni' ) );
@@ -271,10 +323,24 @@ function caa_pagina_impostazioni() {
 					<td><label><input type="checkbox" name="caa_opzioni[veste]" value="1" <?php checked( caa_opzione( 'veste' ) ); ?>> Usa la veste «white cube» (fondo bianco, testo nero, accento blu)</label></td>
 				</tr>
 				<tr>
+					<th scope="row">Nome al posto del logo</th>
+					<td>
+						<label><input type="checkbox" name="caa_opzioni[logo_testo]" value="1" <?php checked( caa_opzione( 'logo_testo' ) ); ?>> Scrivi il nome del sito in caratteri al posto dell'immagine del logo</label>
+						<p class="description">Vale solo con la veste accesa. Il logo resta salvato nel tema: togliendo la spunta ricompare.</p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row">Solo arte</th>
 					<td>
 						<label><input type="checkbox" name="caa_opzioni[solo_arte]" value="1" <?php checked( caa_opzione( 'solo_arte' ) ); ?>> Mostra al pubblico solo i contenuti d'arte</label>
 						<p class="description">Nasconde da home, archivi, ricerca, feed, correlati, indici e menu gli articoli scritti prima del 2026 (salvo quelli nelle categorie d'arte), le loro categorie e le pagine del vecchio blog. Nulla viene cancellato: tutto resta qui nel pannello e raggiungibile dal proprio indirizzo.</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row">Fuori dai motori di ricerca</th>
+					<td>
+						<label><input type="checkbox" name="caa_opzioni[fuori_dai_motori]" value="1" <?php checked( caa_opzione( 'fuori_dai_motori' ) ); ?>> Chiedi a Google e agli altri motori di non indicizzare ciò che «Solo arte» nasconde</label>
+						<p class="description">Vale solo con «Solo arte» acceso. Gli indirizzi continuano a funzionare per chi li ha; togliendo la spunta tornano indicizzabili, ma ai motori servono alcune settimane per accorgersene.</p>
 					</td>
 				</tr>
 			</table>
