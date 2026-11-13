@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Contemporary Art — veste grafica
  * Description:       Veste "white cube" sopra il tema Koji, interruttore che mostra al pubblico solo i contenuti d'arte, articoli in italiano e in inglese. Si regola da Impostazioni → Contemporary Art; disattivando il plugin il sito torna com'era.
- * Version:           1.3.1
+ * Version:           1.4.0
  * Requires at least: 5.6
  * Requires PHP:      7.0
  * License:           MIT
@@ -13,12 +13,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CAA_VERSIONE', '1.3.1' );
+define( 'CAA_VERSIONE', '1.4.0' );
 
-/** Le spunte (veste, logo_testo, solo_arte, fuori_dai_motori, bilingue): tutte accese finché non si spengono da Impostazioni → Contemporary Art. */
+/**
+ * Le spunte di Impostazioni → Contemporary Art. Veste, logo_testo, solo_arte e fuori_dai_motori sono accese finché
+ * non si spengono; «bilingue» (versioni inglesi come articoli separati) è spenta finché non si accende, perché sul
+ * sito ogni articolo porta italiano e inglese nella stessa pagina.
+ */
 function caa_opzione( $nome ) {
 	$salvate = get_option( 'caa_opzioni', array() );
-	return isset( $salvate[ $nome ] ) ? (int) $salvate[ $nome ] : 1;
+	return isset( $salvate[ $nome ] ) ? (int) $salvate[ $nome ] : ( 'bilingue' === $nome ? 0 : 1 );
 }
 
 /** Le due frasi che dicono a chi cerca che cos'è il sito: finiscono nella descrizione per i motori di ricerca della home italiana e di quella inglese. */
@@ -405,6 +409,18 @@ add_filter( 'wpseo_metadesc', 'caa_descrizione' );
 add_filter( 'wpseo_opengraph_desc', 'caa_descrizione' );
 add_filter( 'wpseo_twitter_description', 'caa_descrizione' );
 
+/**
+ * Articoli con le due lingue nella stessa pagina: la parte inglese comincia dall'elemento con ancora «english».
+ * Gli si dichiara la lingua, così lettori di schermo e motori di ricerca sanno che da lì in poi il testo è in inglese.
+ */
+function caa_lingua_delle_parti( $contenuto ) {
+	if ( false === strpos( $contenuto, 'id="english"' ) ) {
+		return $contenuto;
+	}
+	return preg_replace( '/<([a-z0-9]+)\b((?:(?!\blang=)[^>])*?\bid="english"(?:(?!\blang=)[^>])*)>/i', '<$1$2 lang="en">', $contenuto, 1 );
+}
+add_filter( 'the_content', 'caa_lingua_delle_parti', 15 );
+
 /** Le pagine si leggono in https: anche l'indirizzo canonico deve dirlo (la home e alcuni articoli lo dichiaravano ancora in http). */
 function caa_indirizzo_sicuro( $url ) {
 	return ( is_string( $url ) && '' !== $url && is_ssl() ) ? set_url_scheme( $url, 'https' ) : $url;
@@ -470,10 +486,10 @@ function caa_pagina_impostazioni() {
 					</td>
 				</tr>
 				<tr>
-					<th scope="row">Due lingue</th>
+					<th scope="row">Versioni inglesi separate</th>
 					<td>
-						<label><input type="checkbox" name="caa_opzioni[bilingue]" value="1" <?php checked( caa_opzione( 'bilingue' ) ); ?>> Tieni separate le versioni italiana e inglese degli articoli</label>
-						<p class="description">La versione inglese di un articolo è un articolo a sé, abbinato all'originale. In italiano si vedono solo gli articoli italiani; quelli inglesi stanno sotto <code>/en/</code>. Le due versioni si rimandano l'una all'altra, anche per i motori di ricerca (hreflang).</p>
+						<label><input type="checkbox" name="caa_opzioni[bilingue]" value="1" <?php checked( caa_opzione( 'bilingue' ) ); ?>> Tieni la versione inglese di ogni articolo in un articolo a sé</label>
+						<p class="description">Spenta: ogni articolo porta italiano e inglese nella stessa pagina. Accesa: la versione inglese è un articolo abbinato all'originale (campo <code>caa_versione_inglese_di</code>); in italiano si vedono solo gli articoli italiani, quelli inglesi stanno sotto <code>/en/</code> e le due versioni si rimandano l'una all'altra, anche per i motori di ricerca (hreflang).</p>
 					</td>
 				</tr>
 				<tr>
