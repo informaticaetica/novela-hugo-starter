@@ -1,0 +1,1716 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Notte in galleria</title>
+<style>
+  :root { --oro:#d9b45a; --carta:#f3ecdc; --notte:#0b0b17; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--notte); color:var(--carta);
+    font-family: Georgia, "Times New Roman", serif; overflow:hidden; }
+  #wrap { position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  #hud { width:min(100vw, calc((100vh - 46px) * 1.5)); display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:6px 12px; font-size:14px; letter-spacing:.03em; white-space:nowrap; }
+  #hud b { color:var(--oro); font-weight:normal; }
+  #msg { flex:1; text-align:center; overflow:hidden; text-overflow:ellipsis; color:#ffd9a0; }
+  #msg.allarme { color:#ff6b6b; }
+  #palco { position:relative; width:min(100vw, calc((100vh - 46px) * 1.5)); aspect-ratio:3/2; background:#000; }
+  canvas#game { width:100%; height:100%; display:block; touch-action:none; }
+  #radar { position:absolute; left:10px; bottom:10px; width:24%; border:1px solid rgba(217,180,90,.7); border-radius:3px; background:rgba(8,8,16,.55); pointer-events:none; }
+  #radar.centro { left:50%; transform:translateX(-50%); width:20%; }
+  .velo { position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(6,6,14,.9); padding:16px; text-align:center; z-index:5; overflow:auto; }
+  .velo.on { display:flex; }
+  .scheda { max-width:600px; margin:auto; }
+  h1 { font-size:clamp(26px,6vw,44px); margin:0 0 6px; color:var(--oro); font-weight:normal; font-style:italic; }
+  h2 { font-size:16px; font-weight:normal; color:var(--oro); letter-spacing:.12em; text-transform:uppercase; margin:18px 0 4px; }
+  p { line-height:1.5; margin:8px 0; }
+  .piccolo { font-size:13px; opacity:.75; }
+  button { font:inherit; font-size:16px; margin:10px 4px 0; padding:9px 22px; color:var(--notte); background:var(--oro);
+    border:0; border-radius:2px; cursor:pointer; }
+  button:hover { filter:brightness(1.1); }
+  button.sec { background:transparent; color:var(--oro); border:1px solid var(--oro); }
+  button.mini { font-size:13px; padding:3px 10px; margin:0; }
+  button:disabled { opacity:.4; cursor:default; }
+  ol.classifica { list-style:none; padding:0; margin:4px 0; font-size:14px; }
+  ol.classifica li.nuovo { color:var(--oro); }
+  #vista .scheda { max-width:min(92vw,820px); }
+  #tela { max-width:100%; max-height:56vh; width:auto; height:auto; border:10px solid var(--oro); box-shadow:0 0 60px rgba(217,180,90,.35); background:#111; }
+  .targa { display:inline-block; margin-top:12px; padding:8px 18px; background:var(--carta); color:#222; font-size:14px; text-align:left; max-width:560px; }
+  .targa i { display:block; font-size:17px; }
+  .targa small { display:block; opacity:.7; }
+  #catalogo { z-index:6; background:#08080f; }
+  #catalogo .scheda { max-width:900px; }
+  #griglia { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; margin-top:12px; }
+  .opera { background:var(--carta); color:#222; text-align:left; padding:8px; font-size:13px; }
+  .opera canvas { width:100%; display:block; margin-bottom:6px; }
+  .opera i { font-size:16px; display:block; }
+  .opera.chiusa { background:#1a1a2a; color:#777; display:flex; align-items:center; justify-content:center; min-height:150px; text-align:center; }
+  #attrezzi { position:absolute; right:10px; bottom:10px; display:flex; gap:6px; z-index:2; }
+  #attrezzi button { background:rgba(217,180,90,.92); }
+  #notti { display:grid; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)); gap:8px; margin:14px 0 6px; }
+  button.notte { margin:0; padding:9px 6px; display:flex; flex-direction:column; gap:3px; align-items:center; font-size:13px; line-height:1.2; }
+  button.notte b { font-weight:normal; font-size:16px; } button.notte small { font-size:12px; opacity:.85; }
+  #fiati .fiato { position:absolute; bottom:14px; width:150px; height:7px; margin-left:-75px; background:rgba(0,0,0,.55); border:1px solid rgba(217,180,90,.7); border-radius:4px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:2; }
+  #fiati .fiato i { display:block; height:100%; background:var(--oro); border-radius:3px; } #fiati .fiato.affanno i { background:#e05a4a; }
+  #leva { display:none; position:absolute; left:14px; bottom:14px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,.07); border:2px solid rgba(217,180,90,.6); touch-action:none; z-index:3; }
+  #pomello { position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px; border-radius:50%; background:rgba(217,180,90,.8); pointer-events:none; }
+  body.touch #leva { display:block; } body.film #leva, body.film #fiati { display:none; }
+  body.touch #radar, body.touch #radar.centro { left:auto; right:8px; top:8px; bottom:auto; width:25%; transform:none; }
+  #ruoli { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin:10px 0 4px; }
+  button.ruolo { margin:0; width:220px; padding:10px 12px 12px; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:13px; line-height:1.3; }
+  button.ruolo b { font-weight:normal; font-size:21px; font-style:italic; } button.ruolo.sec canvas { opacity:.75; }
+  #stemma { display:block; margin:0 auto 4px; }
+  #filmUI { display:none; position:absolute; inset:0; pointer-events:none; z-index:4; }
+  #filmUI::before, #filmUI::after { content:''; position:absolute; left:0; right:0; height:11%; background:#000; }
+  #filmUI::before { top:0; } #filmUI::after { bottom:0; }
+  #filmTesto { position:absolute; left:8%; right:8%; bottom:14%; text-align:center; font-style:italic; font-size:clamp(15px,2.6vw,24px); color:#fff; text-shadow:0 2px 8px #000, 0 0 2px #000; }
+  #salta { position:absolute; right:12px; top:calc(11% + 10px); pointer-events:auto; background:rgba(0,0,0,.5); z-index:1; }
+  body.film #filmUI { display:block; } body.film #radar, body.film #attrezzi { display:none; } body.film #hud { visibility:hidden; }
+  #quiz .scheda { max-width:680px; }
+  #qzTela { max-width:100%; max-height:36vh; width:auto; height:auto; border:8px solid #b08d3c; box-shadow:0 0 40px rgba(217,180,90,.3); background:#111; }
+  #qzDomanda { font-size:clamp(17px,2.6vw,22px); letter-spacing:0; text-transform:none; color:var(--carta); margin:12px 0 10px; line-height:1.3; }
+  #qzRisposte { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  @media (max-width:520px) { #qzRisposte { grid-template-columns:1fr; } }
+  button.risposta { margin:0; padding:10px 12px; font-size:15px; text-align:left; line-height:1.25; }
+  button.risposta:disabled { opacity:.55; } button.risposta.giusta { opacity:1; background:#2e7d4f; border-color:#2e7d4f; color:#fff; }
+  button.risposta.sbagliata { opacity:1; background:#9b2c2c; border-color:#9b2c2c; color:#fff; }
+  #qzEsito { font-size:15px; text-align:left; min-height:1.2em; } #qzEsito.giusta { color:#9be3b4; } #qzEsito.sbagliata { color:#ffb4a8; }
+  .brani { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:6px 0; }
+  .brani button { font-size:13px; padding:5px 12px; }
+  #tocchi { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); z-index:3; display:none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span><span id="lab1">Struzzi</span> <b id="conta">0/6</b> · <span id="lab2">Rubati</span> <b id="rubati">0</b> · Punti <b id="punti">0</b> <span id="chiavi"></span></span>
+    <span id="msg"></span>
+    <span><button class="mini sec" id="bLuci" title="Accendi le luci (Q)">Luci</button>
+      <button class="mini sec" id="bMuto" title="Audio sì/no (M)">♪</button>
+      <button class="mini sec" id="bBrano" title="Cambia colonna sonora (N)">⏭</button> &nbsp;Ore <b id="ora">00:00</b></span>
+  </div>
+  <div id="palco"><canvas id="game"></canvas><canvas id="radar" width="240" height="160"></canvas>
+    <div id="attrezzi"><button class="mini" id="bFischio"></button><button class="mini" id="bMangime"></button><button class="mini" id="bTransenna"></button><button class="mini" id="bStatua">Statua (E)</button></div>
+    <div id="fiati"></div>
+    <div id="leva"><div id="pomello"></div></div>
+    <div id="filmUI"><div id="filmTesto"></div><button class="mini sec" id="salta">Salta ▸</button></div></div>
+  <div id="tocchi"><button id="guarda">Guarda il quadro</button></div>
+
+  <div class="velo on" id="soglia"><div class="scheda">
+    <canvas id="stemma" width="220" height="150"></canvas>
+    <h1>Notte in galleria</h1>
+    <p>Diciotto capolavori, sei struzzi irrequieti, un custode con la torcia<br>e qualcuno che ai quadri è fin troppo affezionato.</p>
+    <p class="piccolo" style="margin:16px 0 4px">Scegli la colonna sonora: toccane una per ascoltarla. In gioco la cambi con il tasto N o con ⏭.</p>
+    <div class="brani"></div>
+    <button id="entra">Entra nel museo</button>
+  </div></div>
+
+  <div class="velo" id="intro"><div class="scheda">
+    <h1>Tu da che parte stai?</h1>
+    <div id="ruoli">
+      <button class="ruolo" id="r1"><canvas width="90" height="90"></canvas><b>Custode</b><span>Riporta gli struzzi nei quadri e ferma i ladri.</span></button>
+      <button class="ruolo sec" id="r2"><canvas width="90" height="90"></canvas><b>Struzzo</b><span>Esci dalla cornice, ammira i capolavori e non farti prendere.</span></button>
+    </div>
+    <button id="m1">1 giocatore</button><button id="m2" class="sec">2 giocatori</button>
+    <div id="notti"></div>
+    <p class="piccolo" id="aiuto"></p>
+    <div class="brani"></div>
+    <p class="piccolo">Opere di pubblico dominio, riproduzioni da Wikimedia Commons.</p>
+    <button class="sec" id="apriCat">Catalogo delle opere</button><button class="sec" id="rivedi">Rivedi l’intro</button>
+  </div></div>
+
+  <div class="velo" id="briefing"><div class="scheda">
+    <h1 id="brTitolo"></h1>
+    <p class="piccolo" id="brDati"></p>
+    <p id="brTesto"></p>
+    <p id="brNovita" style="color:var(--oro)"></p>
+    <button id="inizia">Inizia il turno</button><button class="sec" id="brMenu">Menu</button>
+  </div></div>
+
+  <div class="velo" id="fine"><div class="scheda">
+    <h1 id="fineTitolo"></h1>
+    <p id="fineStelle" style="font-size:34px;color:var(--oro);margin:0"></p>
+    <p id="fineTesto"></p>
+    <button id="ancora">Rigioca</button><button class="sec" id="menu">Menu</button>
+    <button class="sec" id="apriCat2">Catalogo</button>
+  </div></div>
+
+  <div class="velo" id="quiz"><div class="scheda">
+    <p class="piccolo" id="qzIntro"></p>
+    <canvas id="qzTela" width="640" height="420"></canvas>
+    <h2 id="qzDomanda"></h2>
+    <div id="qzRisposte"></div>
+    <p id="qzEsito"></p>
+    <button id="qzAvanti" style="display:none"></button>
+  </div></div>
+
+  <div class="velo" id="vista"><div class="scheda">
+    <canvas id="tela" width="800" height="600"></canvas><br>
+    <div class="targa"><i id="tTitolo"></i><small id="tDati"></small><span id="tNota"></span></div><br>
+    <button id="chiudi">Torna in sala</button>
+  </div></div>
+
+  <div class="velo" id="catalogo"><div class="scheda">
+    <h1>Catalogo</h1>
+    <p class="piccolo">Ogni struzzo riportato nel suo quadro sblocca la scheda dell'opera.</p>
+    <div id="griglia"></div>
+    <button id="chiudiCat">Chiudi</button>
+  </div></div>
+</div>
+
+<script src="three.min.js"></script>
+<script src="three.post.js"></script>
+<script>
+/* ============================================================
+   LE OPERE
+   Tutte le opere esposte sono di pubblico dominio (autori morti
+   da più di 70 anni); le riproduzioni vengono da Wikimedia
+   Commons: l'elenco con le fonti è in quadri/CREDITI.md.
+   Per cambiare un quadro sostituisci il file in quadri/ e
+   aggiorna titolo, autore e testo qui sotto. Se un file manca,
+   il gioco dipinge un segnaposto.
+   ============================================================ */
+const QUADRI = [
+  { titolo: 'Notte stellata', autore: 'Vincent van Gogh', anno: '1889', tecnica: 'olio su tela', luogo: 'MoMA, New York',
+    testo: 'Dipinta a Saint-Rémy-de-Provence, nella clinica dove Van Gogh era ricoverato: il cielo visto dalla sua finestra, rifatto a memoria.',
+    quiz: ['Da dove Van Gogh vedeva il paesaggio della «Notte stellata»?', 'Dalla finestra della clinica di Saint-Rémy', 'Dal suo studio a Parigi', 'Da un mulino in Olanda', 'Dal porto di Marsiglia'],
+    file: 'quadri/notte-stellata.jpg', colore: '#e8202a' },
+  { titolo: 'Nascita di Venere', autore: 'Sandro Botticelli', anno: '1485 circa', tecnica: 'tempera su tela', luogo: 'Uffizi, Firenze',
+    testo: 'Venere approda a riva su una conchiglia, sospinta dai venti: uno dei simboli del Rinascimento fiorentino.',
+    quiz: ['Su che cosa arriva a riva la Venere di Botticelli?', 'Su una conchiglia', 'Su un delfino', 'Su una barca a vela', 'Su uno scoglio'],
+    file: 'quadri/nascita-venere.jpg', colore: '#ffd400' },
+  { titolo: 'La grande onda di Kanagawa', autore: 'Katsushika Hokusai', anno: '1831 circa', tecnica: 'xilografia policroma', luogo: '',
+    testo: 'La prima delle «Trentasei vedute del monte Fuji»: il vulcano è piccolo, lontano, sotto l’onda.',
+    quiz: ['Quale montagna si vede, piccola, sullo sfondo della «Grande onda»?', 'Il monte Fuji', 'L’Everest', 'L’Etna', 'Il Kilimangiaro'],
+    file: 'quadri/grande-onda.jpg', colore: '#1faa3c' },
+  { titolo: 'Impressione, levar del sole', autore: 'Claude Monet', anno: '1872', tecnica: 'olio su tela', luogo: 'Musée Marmottan Monet, Parigi',
+    testo: 'Il porto di Le Havre all’alba. Dal titolo di questo quadro un critico ricavò, per scherno, la parola «impressionisti».',
+    quiz: ['Quale movimento artistico prende il nome da questo quadro di Monet?', 'L’Impressionismo', 'Il Cubismo', 'Il Futurismo', 'Il Surrealismo'],
+    file: 'quadri/impressione.jpg', colore: '#1f6bff' },
+  { titolo: 'La scuola di Atene', autore: 'Raffaello Sanzio', anno: '1509–1511', tecnica: 'affresco', luogo: 'Stanza della Segnatura, Musei Vaticani',
+    testo: 'I filosofi dell’antichità riuniti sotto un’unica architettura; al centro Platone e Aristotele.',
+    quiz: ['Quali due filosofi stanno al centro della «Scuola di Atene»?', 'Platone e Aristotele', 'Socrate e Pitagora', 'Epicuro e Zenone', 'Eraclito e Diogene'],
+    file: 'quadri/scuola-atene.jpg', colore: '#b23cff' },
+  { titolo: 'Una domenica pomeriggio sull’isola della Grande-Jatte', autore: 'Georges Seurat', anno: '1884–1886', tecnica: 'olio su tela', luogo: 'Art Institute of Chicago',
+    testo: 'Il manifesto del puntinismo: l’immagine è costruita con piccoli tocchi di colore puro accostati.',
+    quiz: ['Come si chiama la tecnica a piccoli punti di colore usata da Seurat?', 'Puntinismo', 'Sfumato', 'Chiaroscuro', 'Collage'],
+    file: 'quadri/grande-jatte.jpg', colore: '#f4f4f4' },
+];
+/* I sei colori dei nastri sono scelti lontani tra loro (rosso, giallo, verde, blu, viola, bianco) e ognuno ha anche un simbolo,
+   così non si confondono né al buio né per chi distingue male i colori. */
+/* Opere alle pareti laterali: non fanno parte del gioco, ma si possono guardare da vicino. */
+const DECOR = [
+  { titolo: 'La Gioconda', autore: 'Leonardo da Vinci', anno: '1503–1519 circa', tecnica: 'olio su tavola', luogo: 'Louvre, Parigi', file: 'quadri/gioconda.jpg',
+    testo: 'Ritratto di Lisa Gherardini, moglie del mercante fiorentino Francesco del Giocondo. Leonardo lo tenne con sé fino alla morte.',
+    quiz: ['Come si chiama la tecnica con cui Leonardo sfuma i contorni, senza linee nette?', 'Sfumato', 'Puntinismo', 'Mosaico', 'Collage'] },
+  { titolo: 'Ragazza con l’orecchino di perla', autore: 'Jan Vermeer', anno: '1665 circa', tecnica: 'olio su tela', luogo: 'Mauritshuis, L’Aia', file: 'quadri/orecchino-perla.jpg',
+    testo: 'Non è un ritratto ma una «tronie», lo studio di un volto e di un costume. La chiamano la Gioconda del Nord.',
+    quiz: ['Che cosa porta in testa la ragazza dipinta da Vermeer?', 'Un turbante azzurro e giallo', 'Una corona d’oro', 'Un cappello di paglia', 'Un velo nero'] },
+  { titolo: 'La ronda di notte', autore: 'Rembrandt', anno: '1642', tecnica: 'olio su tela', luogo: 'Rijksmuseum, Amsterdam', file: 'quadri/ronda-notte.jpg',
+    testo: 'Ritrae la compagnia del capitano Frans Banninck Cocq. Il titolo è nato dopo: la scena sembrava notturna solo perché le vernici si erano scurite.',
+    quiz: ['Chi sono i personaggi della «Ronda di notte»?', 'Una compagnia della guardia civica di Amsterdam', 'I soldati di Napoleone', 'Un equipaggio di pirati', 'I cavalieri della Tavola Rotonda'] },
+  { titolo: 'Canestra di frutta', autore: 'Caravaggio', anno: '1597–1600 circa', tecnica: 'olio su tela', luogo: 'Pinacoteca Ambrosiana, Milano', file: 'quadri/canestra.jpg',
+    testo: 'Una delle prime nature morte della pittura italiana: Caravaggio dipinge anche la mela bacata e le foglie che seccano.',
+    quiz: ['A quale genere di pittura appartiene la «Canestra di frutta»?', 'Natura morta', 'Ritratto', 'Paesaggio', 'Scena di battaglia'] },
+  { titolo: 'L’urlo', autore: 'Edvard Munch', anno: '1893', tecnica: 'tempera e pastello su cartone', luogo: 'Galleria nazionale, Oslo', file: 'quadri/urlo.jpg',
+    testo: 'Munch ne realizzò più versioni. Raccontò di aver sentito, al tramonto, «un urlo infinito attraversare la natura».',
+    quiz: ['Di quale paese era Edvard Munch, il pittore dell’«Urlo»?', 'Norvegia', 'Francia', 'Italia', 'Spagna'] },
+  { titolo: 'Il bacio', autore: 'Gustav Klimt', anno: '1907–1908', tecnica: 'olio e foglia d’oro su tela', luogo: 'Belvedere, Vienna', file: 'quadri/bacio.jpg',
+    testo: 'Il capolavoro del «periodo d’oro» di Klimt: le vesti dei due amanti sono decorate con vera foglia d’oro.',
+    quiz: ['Quale materiale prezioso usò Klimt nel «Bacio»?', 'La foglia d’oro', 'L’argento fuso', 'La polvere di diamante', 'La madreperla'] },
+  { titolo: 'La Libertà che guida il popolo', autore: 'Eugène Delacroix', anno: '1830', tecnica: 'olio su tela', luogo: 'Louvre, Parigi', file: 'quadri/liberta.jpg',
+    testo: 'Celebra le «tre gloriose giornate» del luglio 1830 a Parigi. La donna con il tricolore è un’allegoria della Libertà.',
+    quiz: ['Quale avvenimento celebra il quadro di Delacroix?', 'La rivoluzione parigina del luglio 1830', 'La presa della Bastiglia del 1789', 'La rivoluzione americana', 'La rivoluzione russa'] },
+  { titolo: 'Il quarto stato', autore: 'Giuseppe Pellizza da Volpedo', anno: '1901', tecnica: 'olio su tela', luogo: 'Milano', file: 'quadri/quarto-stato.jpg',
+    testo: 'Una folla di lavoratori avanza compatta verso chi guarda. Pellizza ci lavorò per circa dieci anni.',
+    quiz: ['Chi sono i protagonisti del «Quarto stato»?', 'Lavoratori in marcia', 'Soldati di ritorno dalla guerra', 'Nobili a una festa', 'Pellegrini verso Roma'] },
+  { titolo: 'Viandante sul mare di nebbia', autore: 'Caspar David Friedrich', anno: '1818 circa', tecnica: 'olio su tela', luogo: 'Kunsthalle, Amburgo', file: 'quadri/viandante.jpg',
+    testo: 'Un uomo visto di spalle contempla un mare di nebbia: è una delle immagini simbolo del Romanticismo.',
+    quiz: ['A quale movimento appartiene Caspar David Friedrich?', 'Il Romanticismo', 'Il Barocco', 'Il Cubismo', 'La Pop art'] },
+  { titolo: 'Las Meninas', autore: 'Diego Velázquez', anno: '1656', tecnica: 'olio su tela', luogo: 'Museo del Prado, Madrid', file: 'quadri/meninas.jpg',
+    testo: 'Al centro l’infanta Margherita con le sue damigelle; a sinistra Velázquez si ritrae al cavalletto.',
+    quiz: ['Chi si è ritratto dentro «Las Meninas», mentre dipinge?', 'Velázquez stesso', 'Il re Filippo IV', 'Francisco Goya', 'El Greco'] },
+  { titolo: 'Girasoli', autore: 'Vincent van Gogh', anno: '1888', tecnica: 'olio su tela', luogo: '', file: 'quadri/girasoli.jpg',
+    testo: 'Van Gogh dipinse la serie dei girasoli ad Arles, per decorare la stanza dell’amico Gauguin.',
+    quiz: ['In quale città del sud della Francia Van Gogh dipinse i «Girasoli»?', 'Arles', 'Nizza', 'Bordeaux', 'Lione'] },
+  { titolo: 'La lattaia', autore: 'Jan Vermeer', anno: '1658–1660 circa', tecnica: 'olio su tela', luogo: 'Rijksmuseum, Amsterdam', file: 'quadri/lattaia.jpg',
+    testo: 'Una domestica versa il latte, in silenzio: la luce dalla finestra rende preziosi i gesti di ogni giorno.',
+    quiz: ['Che cosa sta facendo la donna nel quadro di Vermeer?', 'Versa il latte', 'Impasta il pane', 'Cuce una camicia', 'Legge una lettera'] },
+];
+
+/* ---------- salvataggio ---------- */
+const CHIAVE = 'notteInGalleria.v1';
+let salva = { classifica: { 1: [], 2: [] }, migliori: { 1: [], 2: [] }, sbloccate: 1, schede: QUADRI.map(() => false), muto: false, brano: 0 };
+try { const s = JSON.parse(localStorage.getItem(CHIAVE)); if (s && s.classifica && s.schede) salva = Object.assign(salva, s); } catch (e) {}
+const registra = () => { try { localStorage.setItem(CHIAVE, JSON.stringify(salva)); } catch (e) {} };
+
+/* ---------- mappa ---------- */
+const T = 40, MW = 24, MH = 16;
+const BANCHI = [[4,7],[4,8],[11,4],[12,4],[11,11],[12,11],[19,7],[19,8]];
+const PORTE = [{ tx: 1, ty: 7, wx: 0 }, { tx: 22, ty: 8, wx: 23 }];
+const mappa = [];
+for (let y = 0; y < MH; y++) { mappa.push([]);
+  for (let x = 0; x < MW; x++) {
+    let v = 0;
+    if (x === 0 || y === 0 || x === MW-1 || y === MH-1) v = 1;
+    if ((x === 8 || x === 15) && y !== 7 && y !== 8) v = 1;
+    mappa[y].push(v);
+  } }
+BANCHI.forEach(([x,y]) => mappa[y][x] = 2);
+const VASI = [[1,1],[22,1],[1,14],[22,14]];
+VASI.forEach(([x,y]) => mappa[y][x] = 2);
+const STANZE = [{x0:1,x1:7},{x0:9,x1:14},{x0:16,x1:22}];
+const CENTRI = [180, 480, 780], NOMI_SALA = ['Sala I', 'Sala II', 'Sala III'];
+
+const solido = (px,py,io) => { const tx = Math.floor(px/T), ty = Math.floor(py/T);
+  if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return true;
+  const v = mappa[ty][tx]; return v !== 0 && !(io && v === 3); };   // 3 = transenna: ferma gli struzzi, non i custodi; 4 = cancello
+const urta = (x,y,r,io) => solido(x-r,y-r,io) || solido(x+r,y-r,io) || solido(x-r,y+r,io) || solido(x+r,y+r,io);
+function muovi(o, dx, dy) {                 // un asse alla volta, così si scivola lungo i muri; se il passo intero non ci sta si prova con mezzo e un quarto
+  let libero = true;
+  for (const [ax, ay] of [[dx, 0], [0, dy]]) { if (!ax && !ay) continue;
+    if (!urta(o.x + ax, o.y + ay, o.r, o.io)) { o.x += ax; o.y += ay; continue; }
+    libero = false;
+    for (const f of [.5, .25]) if (!urta(o.x + ax * f, o.y + ay * f, o.r, o.io)) { o.x += ax * f; o.y += ay * f; break; } }
+  return libero;
+}
+function disincastra(o) {                   // se qualcuno finisce dentro un ostacolo, lo si riporta nel punto libero più vicino
+  if (!urta(o.x, o.y, o.r, o.io)) return;
+  for (let d = 6; d <= 96; d += 6) for (let a = 0; a < 16; a++) { const x = o.x + Math.cos(a * Math.PI / 8) * d, y = o.y + Math.sin(a * Math.PI / 8) * d;
+    if (!urta(x, y, o.r, o.io)) { o.x = x; o.y = y; return; } }
+}
+// percorso più breve sulla griglia (per il ladro)
+function percorso(x, y, tx, ty) {
+  const sx = Math.floor(x/T), sy = Math.floor(y/T), da = {}, coda = [[sx, sy]]; da[sx + ',' + sy] = null;
+  while (coda.length) {
+    const [cx, cy] = coda.shift();
+    if (cx === tx && cy === ty) { const via = []; let k = [cx, cy];
+      while (k) { via.unshift({ x: k[0]*T + T/2, y: k[1]*T + T/2 }); k = da[k[0] + ',' + k[1]]; } return via; }
+    for (const [ax, ay] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = cx + ax, ny = cy + ay, id = nx + ',' + ny;
+      if (nx < 0 || ny < 0 || nx >= MW || ny >= MH || (mappa[ny][nx] !== 0 && mappa[ny][nx] < 3) || id in da) continue;
+      da[id] = [cx, cy]; coda.push([nx, ny]); }
+  }
+  return [];
+}
+
+/* ---------- utilità ---------- */
+const $ = id => document.getElementById(id);
+const cv = $('game');
+function rng(seed) { let s = seed * 9301 + 49297; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function simbolo(c, i, x, y, r) {             // cerchio, triangolo, quadrato, rombo, stella, croce: uno per colore
+  c.beginPath();
+  if (i === 0) c.arc(x, y, r, 0, 7);
+  else if (i === 1) { c.moveTo(x, y - r * 1.15); c.lineTo(x + r * 1.05, y + r * .8); c.lineTo(x - r * 1.05, y + r * .8); }
+  else if (i === 2) c.rect(x - r * .88, y - r * .88, r * 1.76, r * 1.76);
+  else if (i === 3) { c.moveTo(x, y - r * 1.2); c.lineTo(x + r * .95, y); c.lineTo(x, y + r * 1.2); c.lineTo(x - r * .95, y); }
+  else if (i === 4) for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, q = k % 2 ? r * .52 : r * 1.25; c[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * q, y + Math.sin(a) * q); }
+  else { const t = r * .4, R = r * 1.1; [[-t, -R], [t, -R], [t, -t], [R, -t], [R, t], [t, t], [t, R], [-t, R], [-t, t], [-R, t], [-R, -t], [-t, -t]].forEach((p, k) => c[k ? 'lineTo' : 'moveTo'](x + p[0], y + p[1])); }
+  c.closePath();
+}
+let msgTimer;
+function messaggio(t, allarme) { const m = $('msg'); m.textContent = t; m.className = allarme ? 'allarme' : '';
+  clearTimeout(msgTimer); msgTimer = setTimeout(() => m.textContent = '', 3200); }
+
+/* ---------- audio (tutto generato, nessun file) ---------- */
+let ac, uscita;
+function audio() {
+  if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+  const A = window.AudioContext || window.webkitAudioContext; if (!A) return;
+  ac = new A(); uscita = ac.createGain(); uscita.gain.value = salva.muto ? 0 : 1;
+  const lim = ac.createDynamicsCompressor(); lim.threshold.value = -10; lim.ratio.value = 8; uscita.connect(lim); lim.connect(ac.destination);
+  try { mus = salva.brano >= 0 ? musicaInit(salva.brano) : null; } catch (e) { mus = null; }
+}
+function suono(f0, f1, dur, tipo, vol, ritardo) {
+  if (!ac) return;
+  const t = ac.currentTime + (ritardo || 0), o = ac.createOscillator(), a = ac.createGain();
+  o.type = tipo || 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(vol || 0.15, t + 0.015); a.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(a); a.connect(uscita); o.start(t); o.stop(t + dur + 0.05);
+}
+const SFX = {
+  rientro: () => { suono(520, 780, .12, 'triangle', .2); suono(780, 1170, .18, 'triangle', .2, .12); },
+  verso:   () => { suono(620, 380, .1, 'sawtooth', .06); suono(700, 420, .1, 'sawtooth', .06, .11); },
+  allarme: () => { suono(880, 880, .14, 'square', .07); suono(660, 660, .14, 'square', .07, .16); },
+  preso:   () => { suono(300, 600, .1, 'square', .12); suono(600, 900, .1, 'square', .12, .1); suono(900, 1200, .16, 'square', .12, .2); },
+  rubato:  () => { suono(220, 70, .7, 'sawtooth', .14); },
+  luci:    () => { suono(1400, 1400, .05, 'square', .06); suono(90, 60, .5, 'sine', .15); },
+  vinto:   () => [523, 659, 784, 1047].forEach((f, i) => suono(f, f, .28, 'triangle', .18, i * .16)),
+  perso:   () => [392, 330, 262, 196].forEach((f, i) => suono(f, f, .34, 'triangle', .16, i * .22)),
+};
+/* ---------- musica: quattro colonne sonore originali ----------
+   Tutte generate nota per nota, senza file audio. Si scelgono nella schermata d'ingresso
+   e si cambiano in ogni momento con il tasto N. Ogni brano gira su 16 battute in quattro
+   sezioni e si fa più teso quando ci sono ladri in sala o il custode ti sta inseguendo. */
+const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+let mus = null, risorseAudio = null;
+function musicaInit(indice) {
+  const B = BRANI[indice], m = { brano: indice, sed: 60 / B.bpm / 4, lfo: [] }, G = v => { const g = ac.createGain(); g.gain.value = v; return g; };
+  const F = (tipo, f, q) => { const b = ac.createBiquadFilter(); b.type = tipo; b.frequency.value = f; if (q) b.Q.value = q; return b; };
+  const pan = v => { if (!ac.createStereoPanner) return G(1); const p = ac.createStereoPanner(); p.pan.value = v; return p; };
+  if (!risorseAudio || risorseAudio.ac !== ac) {                           // rumore bianco e risposta del riverbero: si calcolano una volta sola
+    const nb = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const len = Math.floor(ac.sampleRate * 2.8), ir = ac.createBuffer(2, len, ac.sampleRate);
+    for (let c = 0; c < 2; c++) { const x = ir.getChannelData(c); for (let i = 0; i < len; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    risorseAudio = { ac, rumore: nb, ir };
+  }
+  m.rumore = risorseAudio.rumore;
+  m.bus = G(0); m.bus.connect(uscita);
+  m.riv = ac.createConvolver(); m.riv.buffer = risorseAudio.ir; const rg = G(B.riverbero || .3); m.riv.connect(rg); rg.connect(m.bus);
+  // eco ping-pong
+  const dl = ac.createDelay(1.5), dr = ac.createDelay(1.5), fb = G(.44), tono = F('lowpass', 2400), pl = pan(-.75), pr = pan(.75);
+  dl.delayTime.value = dr.delayTime.value = Math.min(1.4, m.sed * 3);
+  m.eco = G(1); m.eco.connect(dl); dl.connect(pl); pl.connect(m.bus); dl.connect(dr); dr.connect(pr); pr.connect(m.bus); dr.connect(tono); tono.connect(fb); fb.connect(dl);
+  const er = G(.25); dr.connect(er); er.connect(m.riv);
+  // phaser: quattro filtri passa-tutto mossi da un'onda lentissima
+  m.ph = G(1); let n = m.ph; const lfo = ac.createOscillator(), lg = G(650); lfo.frequency.value = .09; lfo.connect(lg); lfo.start(); m.lfo.push(lfo);
+  for (let k = 0; k < 4; k++) { const ap = F('allpass', 800 + k * 420, .9); lg.connect(ap.frequency); n.connect(ap); n = ap; }
+  const mix = G(.75); n.connect(mix); m.ph.connect(mix); mix.connect(m.bus); const pr2 = G(.35); mix.connect(pr2); pr2.connect(m.riv);
+  // filtro del pad che si apre e si chiude
+  m.pad = F('lowpass', 950, 4); const lfo2 = ac.createOscillator(), lg2 = G(620); lfo2.frequency.value = .055; lfo2.connect(lg2); lg2.connect(m.pad.frequency); lfo2.start(); m.lfo.push(lfo2); m.pad.connect(m.ph);
+  m.batt = G(1); m.batt.connect(m.bus);
+  m.prossimo = ac.currentTime + .15; m.passo = 0; m.voce = 0;
+  return m;
+}
+function fermaMusica(m) {                                                // il brano vecchio sfuma e viene scollegato
+  if (!m) return; const t = ac.currentTime;
+  try { m.bus.gain.cancelScheduledValues(t); m.bus.gain.setTargetAtTime(0, t, .07); } catch (e) {}
+  setTimeout(() => { try { m.lfo.forEach(o => o.stop()); m.bus.disconnect(); } catch (e) {} }, 1200);
+}
+function scegliBrano(i, annuncia) {
+  salva.brano = i; registra();
+  if (ac) { fermaMusica(mus); mus = null; if (i >= 0) { try { mus = musicaInit(i); } catch (e) { mus = null; } } }
+  disegnaBrani(); if (annuncia) messaggio('♪ ' + (i >= 0 ? BRANI[i].nome : 'Silenzio'));
+}
+function prossimoBrano() { audio(); scegliBrano((salva.brano + 2) % (BRANI.length + 1) - 1, true); }
+function disegnaBrani() {
+  document.querySelectorAll('.brani').forEach(box => { box.innerHTML = '';
+    BRANI.map((b, i) => [b.nome, i]).concat([['Silenzio', -1]]).forEach(([nome, i]) => { const b = document.createElement('button');
+      b.className = 'mini' + (salva.brano === i ? '' : ' sec'); b.textContent = (i >= 0 ? '♪ ' : '') + nome; b.title = i >= 0 ? BRANI[i].stile : 'Nessuna musica, solo gli effetti';
+      b.onclick = () => { audio(); scegliBrano(i); }; box.appendChild(b); }); });
+}
+function voce(dest, tipo, f, t, dur, vol, att, rel, stona) {
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = tipo; o.frequency.setValueAtTime(f, t); if (stona) o.detune.value = stona;
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + att); g.gain.setTargetAtTime(.0001, t + dur, rel / 3);
+  o.connect(g); (Array.isArray(dest) ? dest : [dest]).forEach(x => g.connect(x)); o.start(t); o.stop(t + dur + rel * 2); return { o, g };
+}
+function pizzico(dest, tipo, f, t, vol, dec, stona) {                    // nota pizzicata: attacco secco, coda che si spegne da sola
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = tipo; o.frequency.setValueAtTime(f, t); if (stona) o.detune.value = stona;
+  g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + dec);
+  o.connect(g); (Array.isArray(dest) ? dest : [dest]).forEach(x => g.connect(x)); o.start(t); o.stop(t + dec + .05); return { o, g };
+}
+function colpo(t, tipoF, f, q, dur, vol, dest) {                         // rumore filtrato: piatti, rullante, soffi
+  const s = ac.createBufferSource(), b = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = mus.rumore; s.loop = true;
+  b.type = tipoF; b.frequency.setValueAtTime(f, t); b.Q.value = q;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(b); b.connect(g); dest.forEach(x => g.connect(x)); s.start(t, Math.random() * .5); s.stop(t + dur + .05); return b;
+}
+function tamburo(t, f0, f1, dur, vol) { const k = voce(mus.batt, 'sine', f0, t, dur * .6, vol, .003, dur); k.o.frequency.exponentialRampToValueAtTime(f1, t + dur); }
+function filtro(tipo, f0, f1, q, t, dur, dest) { const b = ac.createBiquadFilter(); b.type = tipo; b.Q.value = q; b.frequency.setValueAtTime(f0, t);
+  if (f1) b.frequency.exponentialRampToValueAtTime(f1, t + dur); (Array.isArray(dest) ? dest : [dest]).forEach(x => b.connect(x)); return b; }
+
+/* 1. Neon psichedelico — synth anni '80: pad con phaser, arpeggio con eco, basso sincopato, batteria elettronica, voce solista */
+const NEON = [[45, [0, 3, 7, 10, 14]], [41, [0, 4, 7, 11, 14]], [38, [0, 3, 7, 10, 14]], [46, [0, 4, 7, 11, 18]],
+              [45, [0, 3, 7, 10, 14]], [48, [0, 4, 7, 11, 14]], [51, [0, 4, 7, 11, 14]], [40, [0, 5, 7, 10, 14]]];
+const CANTO = [4, 2, 3, 1, 2, 3, 4, 2, 0, 2, 1, 3, 4, 3, 2, 0], SALTI = [0, 4, 2, 6, 1, 5, 3, 7, 2, 6, 4, 8, 3, 7, 5, 9];
+function branoNeon(m, n, t, teso) {
+  const s = n % 16, bar = Math.floor(n / 16) % 16, ci = bar >> 1, sez = Math.floor(n / 256) % 4, S = m.sed;
+  const root = NEON[ci][0], iv = ci === 7 && bar % 2 ? [0, 4, 7, 10, 13] : NEON[ci][1];
+  if (s === 0 && (ci === 7 || bar % 2 === 0)) { const dur = S * 16 * (ci === 7 ? 1 : 2) - .2;
+    for (let k = 0; k < 4; k++) [-8, 8].forEach(c => voce(m.pad, 'sawtooth', hz(root + 12 + iv[k]), t, dur, .028, .7, 1.4, c)); }
+  if (sez !== 3 && (s * 7 + bar * 3) % 11 !== 0) {
+    const toni = iv.concat(iv.map(x => x + 12)), fig = bar % 4, i = fig === 0 ? s % 10 : fig === 1 ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4, 3][s] : fig === 2 ? SALTI[s] : (s * 3 + bar) % 10;
+    const f = hz(root + 24 + toni[i]), acc = s % 4 === 0 ? 1.35 : 1, send = ac.createGain(), fl = filtro('lowpass', 600 + 3200 * acc * (teso ? 1.3 : 1), 420, 9, t, .2, [m.ph, send]);
+    send.gain.value = .55; send.connect(m.eco);
+    voce(fl, 'sawtooth', f, t, .07, .075 * acc, .004, .2, -6); voce(fl, 'square', f, t, .07, .03 * acc, .004, .2, 7); }
+  const colpiBasso = teso ? [0, 2, 4, 6, 8, 10, 12, 14] : sez === 0 ? [] : sez === 3 ? [0, 8] : [0, 3, 6, 8, 10, 11, 14];
+  if (colpiBasso.includes(s)) { const su = (s === 8 || s === 11) && sez !== 3 ? 12 : 0, f = hz(root - 12 + su), lungo = sez === 3 && !teso ? 7 : 1.5, fl = filtro('lowpass', 900, 160, 5, t, .25, m.bus);
+    voce(fl, 'sawtooth', f, t, S * lungo, .16, .005, .12); voce(m.bus, 'sine', f / 2, t, S * lungo, .14, .005, .12); }
+  const pieno = sez === 1 || sez === 2 || teso;
+  if (pieno ? s % 4 === 0 : s === 0 || (sez === 0 && s === 8)) tamburo(t, 150, 44, .28, pieno ? .5 : .32);
+  if (pieno && (s === 4 || s === 12)) { colpo(t, 'bandpass', 1900, .7, .24, .3, [m.batt, m.riv]); tamburo(t, 210, 150, .09, .18); }
+  if (sez !== 0 || teso) { if (s % 2 === 0 && s !== 14) colpo(t, 'highpass', 8200, .5, .045, s % 4 === 2 ? .085 : .05, [m.batt]);
+    else if (sez === 2 && s % 2 === 1) colpo(t, 'highpass', 9000, .5, .03, .03, [m.batt]);
+    if (s === 14) colpo(t, 'highpass', 7200, .5, .2, .075, [m.batt]); }
+  if (bar === 15 && s >= 10 && sez !== 0) tamburo(t, 260 - (s - 10) * 26, 120 - (s - 10) * 10, .2, .3);
+  if (bar === 14 && s === 0) colpo(t, 'bandpass', 300, 2.5, S * 32, .05, [m.ph, m.riv]).frequency.exponentialRampToValueAtTime(6500, t + S * 30);
+  if ((sez === 2 || sez === 3) && [0, 6, 8, 12].includes(s) && !(sez === 3 && s === 6)) {
+    const k = [0, 6, 8, 12].indexOf(s), f = hz(root + 36 + iv[CANTO[(bar * 4 + k) % 16] % iv.length] - (k === 3 && bar % 4 === 3 ? 12 : 0)), dur = S * (s === 12 ? 3.5 : s === 0 ? 5 : 2.2);
+    const send = ac.createGain(); send.gain.value = .7; send.connect(m.eco);
+    const v = voce([m.ph, send, m.riv], 'triangle', m.voce || f, t, dur, .085, .03, .35), v2 = voce([send], 'sawtooth', m.voce || f, t, dur, .018, .03, .35, 9);
+    [v, v2].forEach(x => x.o.frequency.exponentialRampToValueAtTime(f, t + .07));
+    const vib = ac.createOscillator(), vg = ac.createGain(); vib.frequency.value = 5.6; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * .012, t + .35);
+    vib.connect(vg); vg.connect(v.o.frequency); vib.start(t); vib.stop(t + dur + .8);
+    if (bar % 8 === 7 && s === 12) v.o.frequency.exponentialRampToValueAtTime(f / 2, t + dur + .5);
+    m.voce = f; }
+  if (teso && s % 2 === 1) voce([m.eco], 'square', hz(root + 36 + (s % 4 === 1 ? 0 : 1)), t, .03, .022, .003, .08);
+}
+
+/* 2. Notturno al museo — lento e sognante: accordi spezzati, archi leggeri e una melodia da carillon in re minore */
+const NOTT = [[38, [0, 3, 7]], [34, [0, 4, 7]], [31, [0, 3, 7]], [33, [0, 5, 7]], [38, [0, 3, 7]], [36, [0, 5, 9]], [31, [0, 3, 9]], [33, [0, 4, 7]]];
+const NOTT_CANTO = [[[0, 69, 8], [8, 74, 4], [12, 72, 4]], [[0, 70, 10], [12, 74, 4]], [[0, 70, 4], [4, 69, 4], [8, 67, 8]], [[0, 69, 6], [8, 73, 4], [12, 76, 4]],
+                    [[0, 77, 6], [8, 76, 4], [12, 74, 4]], [[0, 72, 8], [8, 69, 8]], [[0, 70, 6], [8, 67, 4], [12, 64, 4]], [[0, 69, 14]]];
+function branoNotturno(m, n, t, teso) {
+  const s = n % 16, bar = Math.floor(n / 16) % 16, sez = Math.floor(n / 256) % 4, S = m.sed, c = NOTT[bar % 8], root = c[0], iv = bar % 8 === 3 && s >= 8 ? [0, 4, 7] : c[1];
+  if (s === 0 || (bar % 8 === 3 && s === 8)) for (let k = 0; k < 3; k++) [-6, 6].forEach(d => voce(m.pad, 'sawtooth', hz(root + 24 + iv[k]), t, S * (bar % 8 === 3 ? 8 : 16) - .3, .02, 1, 1.6, d));   // archi
+  if (s % 2 === 0 && sez !== 3) { const fig = [0, 2, 1, 2, 3, 2, 1, 2][s / 2], nota = root + 12 + (fig === 3 ? 12 : fig ? iv[fig] : 0), f = hz(nota);          // mano sinistra
+    pizzico([m.bus, m.riv], 'triangle', f, t, s === 0 ? .15 : .1, 1.7); pizzico(m.bus, 'sine', f * 2, t, .03, .7); }
+  if (sez >= 1) for (const [quando, nota, lungo] of NOTT_CANTO[bar % 8]) if (quando === s) { const f = hz(nota), coda = lungo * S + 1.3;                         // carillon
+    pizzico([m.bus, m.riv, m.eco], 'sine', f, t, .12, coda); pizzico([m.bus, m.riv], 'sine', f * 2, t, .035, coda * .5); pizzico(m.riv, 'triangle', f * 4, t, .012, .4);
+    if (sez === 2) pizzico([m.riv, m.eco], 'sine', f * 2, t + S, .04, coda * .6); }
+  if (sez === 2 && (bar * 5 + s * 3) % 13 === 0) pizzico([m.riv, m.eco], 'sine', hz(root + 60 + iv[(s + bar) % 3]), t, .03, 1.2);                                // scintille
+  if (teso) { voce(m.pad, 'sawtooth', hz(root + 12), t, S * .5, .07, .01, .05); if (s === 0 || s === 3) tamburo(t, 72, 40, .25, .34); }                         // tremolo e battito
+}
+
+/* 3. Funk del custode — batteria swingata, basso a ottave, accordi staccati col "wah" e un riff pentatonico */
+const FUNK = [[40, [0, 3, 7, 10, 14]], [45, [0, 4, 7, 10, 14]], [38, [0, 4, 7, 11, 14]], [35, [0, 4, 7, 10, 15]], [40, [0, 3, 7, 10, 14]], [45, [0, 4, 7, 10, 14]], [36, [0, 4, 7, 11, 14]], [35, [0, 4, 7, 10, 15]]];
+const FUNK_BASSO = { 0: 0, 3: 0, 6: 12, 7: 0, 10: 10, 12: 7, 14: 12 };
+const FUNK_RIFF = [[0, -1, 7, -1, 10, -1, 12, 10, -1, 7, -1, 5, 7, -1, -1, -1], [-1, -1, 12, -1, 10, 7, -1, 5, 7, -1, -1, -1, 3, 5, -1, 7],
+                   [0, -1, -1, 3, 5, -1, 7, -1, 10, -1, 7, -1, 5, 3, -1, 0], [-1, 12, -1, 10, -1, 7, 5, -1, 3, -1, 5, 7, -1, -1, -1, -1]];
+function branoFunk(m, n, t, teso) {
+  const s = n % 16, bar = Math.floor(n / 16) % 16, sez = Math.floor(n / 256) % 4, S = m.sed, c = FUNK[bar % 8], root = c[0], iv = c[1], tt = t + (s % 2 ? S * .16 : 0);   // sedicesimi swingati
+  if (sez !== 3 || teso) { if ([0, 3, 8, 10].includes(s) || (bar % 4 === 3 && s === 14)) tamburo(tt, 150, 46, .22, .5);
+    if (s === 4 || s === 12) { colpo(tt, 'bandpass', 2100, .8, .16, .3, [m.batt, m.riv]); tamburo(tt, 220, 160, .07, .16); }
+    if (s === 7 || s === 15) colpo(tt, 'bandpass', 2400, 1, .05, .07, [m.batt]); }
+  colpo(tt, 'highpass', 8500, .5, s % 4 === 2 ? .16 : .035, s % 4 === 2 ? .075 : s % 2 ? .028 : .05, [m.batt]);                // charleston, aperto sul levare
+  if (s in FUNK_BASSO && (sez !== 3 || s < 8 || teso)) { const f = hz(root + FUNK_BASSO[s]), fl = filtro('lowpass', 1500, 190, 8, tt, .13, m.bus);
+    voce(fl, 'square', f, tt, S * .85, .15, .004, .06); voce(m.bus, 'sine', f, tt, S * .85, .1, .004, .06); }
+  if (sez >= 1 && [2, 5, 9, 13].includes(s)) { const bp = filtro('bandpass', 700 + 1300 * ((s * 5 + bar) % 7) / 6, 0, 4, tt, 0, [m.bus, m.ph]);
+    for (let k = 1; k < 4; k++) voce(bp, 'square', hz(root + 24 + iv[k]), tt, .05, .075, .003, .05); }
+  if (sez >= 2) { const semi = FUNK_RIFF[bar % 4][s]; if (semi >= 0 && !(sez === 3 && s >= 8)) { const f = hz(64 + semi), send = ac.createGain(), bp = filtro('bandpass', 650, 2300, 3, tt, .12, [m.bus, send]);
+    send.gain.value = .3; send.connect(m.eco); voce(bp, 'sawtooth', f, tt, S * 1.2, .16, .01, .1, 6); voce(bp, 'square', f / 2, tt, S * 1.2, .06, .01, .1); } }
+  if (teso && [3, 6, 11, 14].includes(s)) tamburo(tt, 340, 250, .07, .16);                                                      // conga nervosa
+}
+
+/* 4. Capriccio barocco — clavicembalo su un giro di quinte in la minore, basso che cammina e un flauto sopra */
+const SCALA_LA = [0, 2, 3, 5, 7, 8, 10], GIRO = [0, 3, -1, 2, -2, 1, -3, 0];        // La, Re, Sol, Do, Fa, Si, Mi, La
+const grado = (k, dominante) => { const g = ((k % 7) + 7) % 7; return 57 + 12 * Math.floor(k / 7) + SCALA_LA[g] + (dominante && g === 6 ? 1 : 0); };
+const FIG_ACCORDO = [0, 1, 2, 1, 0, 1, 2, 1, 3, 2, 1, 2, 0, 1, 2, 1], FIG_SCALA = [7, 8, 9, 10, 11, 10, 9, 8, 7, 6, 5, 6, 7, 9, 11, 9];
+function clavicembalo(m, f, t, vol, dec) { const hp = filtro('highpass', 420, 0, .7, t, 0, [m.bus, m.riv]); pizzico(hp, 'sawtooth', f, t, vol, dec, -4); pizzico(hp, 'square', f * 2, t, vol * .25, dec * .5, 5); }
+function branoBarocco(m, n, t, teso) {
+  const s = n % 16, bar = Math.floor(n / 16) % 16, sez = Math.floor(n / 256) % 4, S = m.sed, d = GIRO[bar % 8], dom = ((d % 7) + 7) % 7 === 4, T = [d, d + 2, d + 4, d + 7];
+  if (sez !== 3) clavicembalo(m, hz(grado(bar % 2 === 0 || sez === 0 ? T[FIG_ACCORDO[s]] + 7 : d + FIG_SCALA[s], dom)), t, s % 4 === 0 ? .1 : .072, .34);
+  else if (s % 8 === 0) for (let j = 0; j < 4; j++) clavicembalo(m, hz(grado(T[j] + 7, dom)), t + j * .035, .085, 1.1);       // accordo arpeggiato
+  if (s % 4 === 0) { const f = hz(grado([d - 7, d - 3, d - 5, d - 3][s / 4], dom)); pizzico(m.bus, 'triangle', f, t, .2, .55); clavicembalo(m, f, t, .06, .45); }   // basso continuo
+  if (sez >= 2 && s % 8 === 0) { const f = hz(grado((bar % 2 ? [d + 9, d + 14] : [d + 11, d + 9])[s / 8], dom));                                   // flauto
+    const v = voce([m.bus, m.riv, m.eco], 'sine', f, t, S * 7, .1, .07, .3); voce(m.riv, 'triangle', f, t, S * 7, .025, .07, .3, 5);
+    const vib = ac.createOscillator(), vg = ac.createGain(); vib.frequency.value = 5; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * .008, t + .4);
+    vib.connect(vg); vg.connect(v.o.frequency); vib.start(t); vib.stop(t + S * 7 + .7); }
+  if ((sez === 1 || sez === 2) && (s === 4 || s === 12)) colpo(t, 'highpass', 6200, .5, .07, .06, [m.batt, m.riv]);            // tamburello
+  if (teso && [0, 8, 14, 15].includes(s)) tamburo(t, 115, 68, .32, s > 12 ? .25 : .42);                                         // timpani
+}
+const BRANI = [
+  { nome: 'Neon psichedelico', stile: 'Synth anni ’80', bpm: 104, riverbero: .3, volume: 1, passo: branoNeon },
+  { nome: 'Notturno al museo', stile: 'Lento e sognante', bpm: 66, riverbero: .55, volume: 2, passo: branoNotturno },
+  { nome: 'Funk del custode', stile: 'Ritmo e basso', bpm: 108, riverbero: .2, volume: 1, passo: branoFunk },
+  { nome: 'Capriccio barocco', stile: 'Clavicembalo e flauto', bpm: 96, riverbero: .4, volume: 1.7, passo: branoBarocco },
+];
+setInterval(() => {
+  if (!ac || !mus || ac.state !== 'running') return;
+  mus.bus.gain.setTargetAtTime((stato === 'gioco' ? .5 : stato === 'vista' || stato === 'quiz' ? .28 : .38) * BRANI[mus.brano].volume, ac.currentTime, .4);
+  if (mus.prossimo < ac.currentTime - .3) mus.prossimo = ac.currentTime + .05;           // la scheda era in pausa: riparti da qui
+  const teso = stato === 'gioco' && (ladri.length > 0 || custodi.some(c => c.statoG === 'insegue' && c.bersaglio && c.bersaglio.giocatore));
+  while (mus.prossimo < ac.currentTime + .3) { BRANI[mus.brano].passo(mus, mus.passo++, mus.prossimo, teso); mus.prossimo += mus.sed; }
+}, 90);
+function muto() { salva.muto = !salva.muto; registra(); if (uscita) uscita.gain.value = salva.muto ? 0 : 1; $('bMuto').textContent = salva.muto ? '♪̸' : '♪'; }
+
+/* ---------- lo struzzo ---------- */
+function struzzo(c, x, y, k, verso, fase, sciarpa, sagoma) {
+  c.save(); c.translate(x, y); c.scale(k * verso, k); c.lineCap = 'round'; c.lineJoin = 'round';
+  if (sagoma) { c.setLineDash([4,4]); c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; }
+  const a = Math.sin(fase) * 7;
+  c.strokeStyle = sagoma ? c.strokeStyle : '#e8b9a0'; c.lineWidth = sagoma ? 1.5 : 2.6;
+  c.beginPath(); c.moveTo(-3,-14); c.lineTo(-3 + a, 0); c.lineTo(1 + a, 0);
+  c.moveTo(3,-14); c.lineTo(3 - a, 0); c.lineTo(7 - a, 0); c.stroke();
+  c.beginPath(); c.ellipse(0,-22,14,10,-0.15,0,7);
+  if (sagoma) c.stroke(); else { c.fillStyle = '#1d1d22'; c.fill();
+    c.fillStyle = '#f5f1e6'; c.beginPath(); c.ellipse(-12,-22,6,7,0.5,0,7); c.fill();
+    c.beginPath(); c.ellipse(2,-17,8,4,0,0,7); c.fillStyle = '#34343c'; c.fill(); }
+  c.beginPath(); c.moveTo(10,-26); c.quadraticCurveTo(13,-40,17,-50);
+  c.strokeStyle = sagoma ? c.strokeStyle : '#e8b9a0'; c.lineWidth = sagoma ? 1.5 : 3.4; c.stroke();
+  c.beginPath(); c.ellipse(19,-52,4.5,3.6,0,0,7);
+  if (sagoma) c.stroke(); else { c.fillStyle = '#e8b9a0'; c.fill();
+    c.fillStyle = '#c98b3a'; c.beginPath(); c.moveTo(23,-53); c.lineTo(29,-51); c.lineTo(23,-50); c.fill();
+    c.fillStyle = '#111'; c.beginPath(); c.arc(20,-53,1.1,0,7); c.fill();
+    c.strokeStyle = sciarpa; c.lineWidth = 4.5; c.beginPath(); c.moveTo(11,-33); c.lineTo(15,-35); c.stroke();
+    c.lineWidth = 3; c.beginPath(); c.moveTo(11,-33); c.lineTo(6,-27); c.stroke(); }
+  c.restore();
+}
+
+/* ---------- pittura dei quadri ---------- */
+const TAVOLOZZE = [['#f6c9a8','#7a2e39','#27405e'],['#bfe0d8','#d98032','#3b2a4a'],['#f2e2b3','#2f6f73','#8a2f2f'],
+                   ['#cfd8f5','#5b3a8a','#c9762f'],['#f7d5e0','#235b8c','#2d2d2d'],['#d6ecb9','#a3353f','#274a3c']];
+function dipingi(q, i, rientrato) {
+  const c = document.createElement('canvas'); c.width = 800; c.height = 600;
+  const x = c.getContext('2d');
+  if (q.img) {
+    const a = Math.min(1.7, Math.max(.62, q.img.width / q.img.height)); c.height = Math.round(800 / a);
+    const H = c.height, s = Math.max(800 / q.img.width, H / q.img.height), w = q.img.width * s, h = q.img.height * s;
+    x.drawImage(q.img, (800 - w) / 2, (H - h) / 2, w, h);
+    if (q.decor) return c;
+    const k = H / 105;                                   // lo struzzo occupa circa metà dell'altezza
+    if (!rientrato) { x.fillStyle = 'rgba(10,10,28,.5)'; x.fillRect(0, 0, 800, H); x.lineWidth = 2; struzzo(x, 590, H * .97, k, 1, 0, q.colore, true); }
+    else { x.fillStyle = 'rgba(0,0,0,.3)'; x.beginPath(); x.ellipse(590, H * .965, k * 15, k * 2.2, 0, 0, 7); x.fill(); struzzo(x, 590, H * .97, k, 1, 0.4, q.colore, false); }
+    return c;
+  }
+  const r = rng(i + 3), P = TAVOLOZZE[i % TAVOLOZZE.length];
+  const gr = x.createLinearGradient(0,0,0,400); gr.addColorStop(0, P[0]); gr.addColorStop(1, '#fff8ea');
+  x.fillStyle = gr; x.fillRect(0,0,800,600);
+  x.strokeStyle = 'rgba(0,0,0,.12)'; x.lineWidth = 3;
+  for (let k = 0; k < 4; k++) x.strokeRect(30 + k*190, 40, 160, 320);
+  const ax = 120 + r() * 420, aw = 150;
+  x.fillStyle = P[2]; x.beginPath(); x.moveTo(ax, 380); x.lineTo(ax, 180); x.arc(ax + aw/2, 180, aw/2, Math.PI, 0); x.lineTo(ax + aw, 380); x.fill();
+  x.fillStyle = '#fff'; for (let k = 0; k < 14; k++) { x.globalAlpha = .4 + r()*.6; x.beginPath(); x.arc(ax + 15 + r()*(aw-30), 130 + r()*230, 1 + r()*2.5, 0, 7); x.fill(); }
+  x.globalAlpha = 1;
+  for (let k = 0; k < 5; k++) { x.fillStyle = k % 2 ? P[1] : QUADRI[(i + k) % 6].colore; x.globalAlpha = .85;
+    x.beginPath(); x.arc(r()*800, 40 + r()*300, 14 + r()*46, 0, 7); x.fill(); }
+  x.globalAlpha = 1;
+  for (let riga = 0; riga < 6; riga++) {
+    const y0 = 400 + (riga*riga) * 5.6, y1 = 400 + ((riga+1)*(riga+1)) * 5.6;
+    for (let col = -8; col < 8; col++) {
+      const p = y => 400 + (col * 70) * (0.55 + (y - 400) / 200), p2 = y => 400 + ((col+1) * 70) * (0.55 + (y - 400) / 200);
+      x.fillStyle = (riga + col) & 1 ? P[1] : '#f4efe2';
+      x.beginPath(); x.moveTo(p(y0), y0); x.lineTo(p2(y0), y0); x.lineTo(p2(y1), y1); x.lineTo(p(y1), y1); x.fill();
+    } }
+  x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(0, 392, 800, 8);
+  const sx = 250 + r() * 300, verso = r() > .5 ? 1 : -1;
+  if (rientrato) { x.fillStyle = 'rgba(0,0,0,.25)'; x.beginPath(); x.ellipse(sx, 545, 90, 14, 0, 0, 7); x.fill();
+    struzzo(x, sx, 545, 6.5, verso, 0.4, q.colore, false); }
+  else { x.fillStyle = 'rgba(10,10,28,.35)'; x.fillRect(0,0,800,600); struzzo(x, sx, 545, 6.5, verso, 0.4, q.colore, true); }
+  return c;
+}
+
+/* ---------- la campagna ---------- */
+const NOTTI = [
+  { nome: 'Il primo turno', struzzi: 3, durata: 150, ladri: 0, fischi: 2, mangime: 0, transenne: 0,
+    testo: 'Tre struzzi sono usciti dai quadri. Ognuno porta nastri di un colore, con un simbolo: spingilo nel cerchio dello stesso colore e dello stesso simbolo prima delle 06:00.',
+    novita: 'Fischietto (tasto 1): gli struzzi vicini si bloccano sull’attenti per qualche secondo.' },
+  { nome: 'Un ospite inatteso', struzzi: 4, durata: 180, ladri: 1, pausa: 22, furto: 5, fischi: 2, mangime: 2, transenne: 0,
+    testo: 'Stanotte qualcuno ha messo gli occhi sulla collezione. Quando scatta l’allarme hai pochi secondi: se lo acchiappi il quadro è salvo, se esce dalla porta è perso.',
+    novita: 'Mangime (tasto 2): lo lasci a terra e gli struzzi vicini vanno a beccarlo. Mettilo dentro un cerchio…' },
+  { nome: 'Sotto chiave', struzzi: 6, durata: 210, ladri: 1, pausa: 18, furto: 4.5, cancello: 1, fischi: 3, mangime: 2, transenne: 2,
+    testo: 'Tutti e sei gli struzzi sono in giro, e un cancello chiude uno dei passaggi: la chiave è da qualche parte nelle sale. Il ladro, lui, ha il grimaldello.',
+    novita: 'Transenna (tasto 3): vicino a un passaggio lo chiude agli struzzi per mezzo minuto.' },
+  { nome: 'La banda', struzzi: 6, durata: 210, ladri: 2, pausa: 13, furto: 4.5, fischi: 3, mangime: 2, transenne: 2,
+    testo: 'I ladri adesso sono due, e lavorano insieme: uno per sala. Il fischietto spaventa anche loro.',
+    novita: '' },
+  { nome: 'La lunga notte', struzzi: 6, durata: 230, ladri: 2, pausa: 10, furto: 3.8, velLadro: 1.12, velStruzzi: 1.15, cancello: 1, fischi: 3, mangime: 3, transenne: 2,
+    testo: 'Struzzi più svelti, ladri più rapidi, un cancello chiuso. È l’ultima notte prima dell’inaugurazione.',
+    novita: '' },
+];
+/* Le notti da struzzo: esci dal quadro, ammira le opere, non farti prendere e rientra prima dell'alba. */
+const NOTTI_S = [
+  { nome: 'Fuori dalla cornice', opere: 5, durata: 150, guardie: 1, velG: .85, ladri: 0, amici: 2, chicchi: 0,
+    testo: 'Dopo più di un secolo nella stessa posa, hai voglia di sgranchirti le zampe. Fermati un momento davanti a cinque opere, poi torna nel tuo quadro prima delle 06:00. Occhio alla torcia del custode: se ti prende ti rimette nel quadro, e per uscirne dovrai rispondere a una domanda su un capolavoro.',
+    novita: 'Statua (tieni premuto E): testa sotto la sabbia, immobile. Da lontano il custode ti scambia per una scultura.' },
+  { nome: 'Il giro lungo', opere: 9, durata: 185, guardie: 1, velG: 1, ladri: 0, amici: 2, chicchi: 3,
+    testo: 'Stanotte il giro è più lungo e il custode ha bevuto il caffè. In compenso qualcuno ha lasciato del mangime in giro.',
+    novita: 'Chicchi: beccali da terra per qualche secondo di corsa sfrenata.' },
+  { nome: 'Becco di guardia', opere: 11, durata: 205, guardie: 1, velG: 1, ladri: 1, pausa: 20, furto: 6, amici: 2, chicchi: 3,
+    testo: 'C’è un ladro in galleria, e quei quadri sono casa tua. Il custode da solo non ce la fa.',
+    novita: 'I ladri: corrigli addosso e beccali. Mollano il quadro e scappano.' },
+  { nome: 'Due torce', opere: 13, durata: 215, guardie: 2, velG: 1, ladri: 1, pausa: 18, furto: 5.5, amici: 3, chicchi: 3,
+    testo: 'Hanno assunto un secondo custode. Due torce, due fasci di luce da evitare.', novita: '' },
+  { nome: 'Tutta la collezione', opere: 16, durata: 235, guardie: 2, velG: 1.1, ladri: 2, pausa: 14, furto: 5, amici: 3, chicchi: 4,
+    testo: 'L’ultima notte prima dell’inaugurazione: vuoi vedere quasi tutto, sedici opere su diciotto. Custodi svelti, due ladri, poco tempo.', novita: '' },
+];
+const LUCI_ACCESE = 5, LUCI_RICARICA = 22, PASSAGGI = [8, 15];
+let DURATA = 210, TEMPO_FURTO = 4.5, L = NOTTI[0], notte = 0;
+
+/* ---------- stato ---------- */
+let stato = 'soglia', modo = 1, ruolo = 'custode', tempo = 0, punti = 0, presi = 0;
+let eroi = [], visite = new Set(), beccati = 0, catture = 0, film = null;      // eroi = i personaggi mossi dai giocatori
+const tabella = () => ruolo === 'struzzo' ? NOTTI_S : NOTTI, chiaveRuolo = () => (ruolo === 'struzzo' ? 's' : '') + modo;
+let custodi, struzzi, quadri, ladri = [], prossimoLadro, vicino = null, lampi = [], luci = 0, ricarica = 0;
+let attrezzi = { fischi: 0, mangime: 0, transenne: 0 }, esche = [], transenne = [], cancello = null, chiave = null, chiavi = 0;
+const tasti = {}, leva = { x: 0, y: 0, id: null }, FERMO = { giro: 0, avanti: 0, lato: 0, corri: false };
+const inquadra = [{ passo: .25, dist: 3.7 }, { passo: .25, dist: 3.7 }];        // inclinazione e distanza della telecamera di ogni giocatore
+let mouseDentro = false, mouseVoluto = false, uscitaNostra = false, sguardo = null;
+const TOUCH = 'ontouchstart' in window;
+const mescola = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const stanzaDi = x => x < 8 * T ? 0 : x < 15 * T ? 1 : 2;
+function postoLibero(st, lontanoDa) { let x, y, n = 0;
+  do { x = (st.x0 + .5 + Math.random() * (st.x1 - st.x0)) * T; y = (2 + Math.random() * 12) * T; }
+  while ((urta(x, y, 23) || (lontanoDa && Math.hypot(x - lontanoDa.x, y - lontanoDa.y) < 120)) && ++n < 200);
+  return { x, y }; }
+
+function prepara() {
+  L = tabella()[Math.min(notte, tabella().length - 1)]; DURATA = L.durata; TEMPO_FURTO = L.furto || 4.5;
+  PASSAGGI.forEach(tx => { mappa[7][tx] = mappa[8][tx] = 0; });
+  esche = []; transenne = []; chiavi = 0; cancello = null; chiave = null;
+  attrezzi = { fischi: L.fischi || 0, mangime: L.mangime || 0, transenne: L.transenne || 0 };
+  visite = new Set(); beccati = 0; catture = 0; quiz = null; quizFatte = new Set(); quizOk = 0; quizNo = 0;
+  if (L.cancello) { const sx = Math.random() < .5;                       // un passaggio chiuso; la chiave è nella sala più lontana
+    cancello = { tx: sx ? 8 : 15, aperto: false }; mappa[7][cancello.tx] = mappa[8][cancello.tx] = 4;
+    chiave = Object.assign(postoLibero(STANZE[sx ? 2 : 0]), { presa: false }); }
+  const daStruzzo = ruolo === 'struzzo', ordine = mescola([0, 1, 2, 3, 4, 5]), nEroi = daStruzzo ? modo : 0;
+  const fuori = ordine.slice(0, daStruzzo ? nEroi + L.amici : L.struzzi);
+  quadri = QUADRI.map((q, i) => {
+    const stanza = i % 3, sopra = i < 3;
+    const o = { ...q, i, stanza, sopra, x: CENTRI[stanza], y: sopra ? 20 : 620, by: sopra ? 78 : 562,
+                rientrato: !fuori.includes(i), inMano: false, rubato: false, src: q };
+    o.arte = dipingi(q, i, o.rientrato);
+    return o;
+  });
+  struzzi = quadri.map((q, i) => {
+    const s = { q, r: 19, fase: Math.random() * 6, ang: Math.random() * 6.28, cambio: 0, fermo: 0, scatto: 0, attenti: 0, mangia: false, snob: 0 }, k = ordine.indexOf(i);
+    if (k < nEroi) Object.assign(s, { giocatore: true, idx: k, x: q.x, y: q.by + (q.sopra ? 45 : -45), ang: q.sopra ? Math.PI / 2 : -Math.PI / 2, inv: 2.5, turbo: 0, guardaT: 0, guardaK: null });
+    else Object.assign(s, postoLibero(STANZE[(q.stanza + 1 + (i > 2 ? 1 : 0)) % 3], { x: 480, y: 320 }));
+    return s;
+  });
+  if (daStruzzo) {
+    eroi = struzzi.filter(s => s.giocatore).sort((a, b) => a.idx - b.idx); custodi = [];
+    for (let k = 0; k < L.guardie; k++) custodi.push(Object.assign(postoLibero(STANZE[(eroi[0].q.stanza + 1 + k) % 3]),
+      { r: 14, fase: 0, ang: Math.random() * 6.28, divisa: k ? '#7a2e39' : '#2c3e6e', scuro: k ? '#4a1820' : '#1b2440', io: 1, auto: true, statoG: 'ronda', via: [], pausa: 2 + k * 2, rip: 0, perso: 0, avviso: 0, tInseg: 0 }));
+    for (let k = 0; k < L.chicchi; k++) esche.push(Object.assign(postoLibero(STANZE[k % 3]), { t: 9999 }));
+  } else {
+    custodi = [{ x: modo === 2 ? 450 : 480, y: 320, r: 14, fase: 0, ang: -Math.PI / 2, divisa: '#2c3e6e', scuro: '#1b2440', io: 1 }];
+    if (modo === 2) custodi.push({ x: 510, y: 320, r: 14, fase: 0, ang: -Math.PI / 2, divisa: '#7a2e39', scuro: '#4a1820', io: 1 });
+    eroi = custodi;
+  }
+  tempo = 0; punti = 0; presi = 0; lampi = []; ladri = []; prossimoLadro = 12; luci = 0; ricarica = 0; aggiornaHud(); costruisci();
+}
+QUADRI.forEach((q, i) => { const im = new Image();
+  im.onload = () => { q.img = im; if (quadri) { const o = quadri[i]; o.arte = dipingi(q, i, o.rientrato); } };
+  im.src = q.file; });
+DECOR.forEach(d => { d.decor = true; const im = new Image(); im.onload = () => { d.img = im; d.arte = dipingi(d, 0, true); }; im.src = d.file; });
+
+function aggiornaHud() {
+  const vivi = quadri.filter(q => !q.rubato), daStruzzo = ruolo === 'struzzo';
+  $('lab1').textContent = daStruzzo ? 'Opere viste' : 'Struzzi'; $('lab2').textContent = daStruzzo ? 'Catture' : 'Rubati';
+  $('conta').textContent = daStruzzo ? visite.size + '/' + L.opere : vivi.filter(q => q.rientrato).length + '/' + vivi.length;
+  $('rubati').textContent = daStruzzo ? catture : quadri.length - vivi.length;
+  $('bStatua').style.display = daStruzzo ? '' : 'none'; $('bStatua').textContent = document.body.classList.contains('touch') ? 'Statua' : 'Statua (E)';
+  $('punti').textContent = punti;
+  const m = Math.min(360, Math.floor(tempo / DURATA * 360));
+  $('ora').textContent = String(Math.floor(m / 60)).padStart(2,'0') + ':' + String(m % 60).padStart(2,'0');
+  const b = $('bLuci'); b.disabled = luci > 0 || ricarica > 0; b.style.display = daStruzzo ? 'none' : '';
+  b.textContent = luci > 0 ? 'Luci accese' : ricarica > 0 ? 'Luci ' + Math.ceil(ricarica) + 's' : 'Luci (Q)';
+  [['bFischio', 'fischi', 'Fischietto'], ['bMangime', 'mangime', 'Mangime'], ['bTransenna', 'transenne', 'Transenna']].forEach(([id, k, nome], i) => {
+    const e = $(id); e.style.display = L[k] ? '' : 'none'; e.disabled = !attrezzi[k]; e.textContent = (i + 1) + ' · ' + nome + ' ×' + attrezzi[k]; });
+  $('chiavi').textContent = chiavi ? '🗝 ' : '';
+}
+const custodeVicino = (x, y) => { let d = 1e9, c = null;
+  for (const k of custodi) { const e = Math.hypot(k.x - x, k.y - y); if (e < d) { d = e; c = k; } } return { d, c }; };
+
+/* ---------- gli attrezzi del custode ---------- */
+function fischia(c) {
+  if (stato !== 'gioco' || !attrezzi.fischi) return; attrezzi.fischi--;
+  suono(2300, 2900, .12, 'square', .1); suono(2900, 2500, .35, 'square', .1, .12);
+  lampi.push({ x: c.x, y: c.y, t: 0, c: '#ffffff' }); let n = 0;
+  for (const s of struzzi) if (!s.q.rientrato && Math.hypot(s.x - c.x, s.y - c.y) < 270) { s.attenti = 4.5; s.scatto = 0; n++; }
+  for (const l of ladri) if (Math.hypot(l.x - c.x, l.y - c.y) < 270 && (l.stato === 'va' || l.stato === 'ruba')) { l.stato = 'fugge'; versoPorta(l); }
+  messaggio(n ? n + (n > 1 ? ' struzzi' : ' struzzo') + ' sull’attenti!' : 'Nessuno struzzo abbastanza vicino.');
+}
+function semina(c) {
+  if (stato !== 'gioco' || !attrezzi.mangime) return; attrezzi.mangime--;
+  esche.push({ x: c.x + Math.cos(c.ang) * 26, y: c.y + Math.sin(c.ang) * 26, t: 11 }); suono(900, 500, .08, 'triangle', .1); suono(700, 400, .08, 'triangle', .1, .07);
+  messaggio('Mangime a terra: allontanati e lasciali beccare.');
+}
+function transenna(c) {
+  if (stato !== 'gioco' || !attrezzi.transenne) return;
+  const tx = PASSAGGI.slice().sort((a, b) => Math.abs((a + .5) * T - c.x) - Math.abs((b + .5) * T - c.x))[0];
+  if (Math.hypot((tx + .5) * T - c.x, 8 * T - c.y) > 140) return messaggio('Avvicinati a un passaggio tra le sale.');
+  if (mappa[7][tx] !== 0) return messaggio('Questo passaggio è già chiuso.');
+  attrezzi.transenne--; mappa[7][tx] = mappa[8][tx] = 3; transenne.push({ tx, t: 30 }); suono(160, 110, .15, 'square', .12);
+  for (const s of struzzi) if (Math.floor(s.x / T) === tx) { s.x = (tx + (s.x < (tx + .5) * T ? -.5 : 1.5)) * T; disincastra(s); }   // nessuno resta incastrato
+  messaggio('Transenna piazzata: per mezzo minuto gli struzzi non passano.');
+}
+
+/* ---------- i ladri ---------- */
+function entraLadro() {
+  const bersagli = quadri.filter(q => !q.rubato && !ladri.some(l => l.q === q) && !(ruolo === 'struzzo' && eroi.some(s => s.q === q)));
+  if (!bersagli.length) return;
+  // entra dalla porta più lontana dai custodi (e da un eventuale complice)
+  const occupata = p => ladri.some(l => Math.hypot(l.x - p.tx * T, l.y - p.ty * T) < 200) ? 1e4 : 0;
+  const porta = PORTE.slice().sort((a, b) => (custodeVicino(b.tx*T, b.ty*T).d - occupata(b)) - (custodeVicino(a.tx*T, a.ty*T).d - occupata(a)))[0];
+  const q = bersagli[Math.floor(Math.random() * bersagli.length)];
+  const l = { x: porta.tx*T + T/2, y: porta.ty*T + T/2, r: 11, stato: 'va', q, t: 0, fase: 0, ang: 0, bip: 0, via: [], id: Math.random() };
+  l.via = percorso(l.x, l.y, Math.floor(q.x / T), Math.floor(q.by / T)); ladri.push(l);
+  messaggio('Una porta cigola da qualche parte…');
+  suono(180, 240, .5, 'sawtooth', .05);
+}
+function versoPorta(l) {
+  const p = PORTE.slice().sort((a, b) =>
+    (custodeVicino(b.tx*T, b.ty*T).d - Math.hypot(b.tx*T - l.x, b.ty*T - l.y) * .6) -
+    (custodeVicino(a.tx*T, a.ty*T).d - Math.hypot(a.tx*T - l.x, a.ty*T - l.y) * .6))[0];
+  l.via = percorso(l.x, l.y, p.tx, p.ty);
+}
+function segui(l, vel, dt) {
+  if (!l.via.length) return true;
+  const p = l.via[0], dx = p.x - l.x, dy = p.y - l.y, d = Math.hypot(dx, dy), passo = vel * dt;
+  if (d <= passo) { l.x = p.x; l.y = p.y; l.via.shift(); }
+  else { l.x += dx / d * passo; l.y += dy / d * passo; l.ang = Math.atan2(dy, dx); }
+  l.fase += dt * vel / 12;
+  return !l.via.length;
+}
+function passoLadri(dt) {
+  if (L.ladri && ladri.length < L.ladri && (prossimoLadro -= dt) <= 0) { entraLadro(); prossimoLadro = L.pausa * (.8 + Math.random() * .5); }
+  const VL = L.velLadro || 1;
+  for (const l of ladri) {
+    const vicinoC = custodeVicino(l.x, l.y);
+    if (vicinoC.d < 26) {                                   // acchiappato
+      if (l.q.inMano) { l.q.inMano = false; messaggio('Ladro acchiappato: il quadro è salvo!'); }
+      else messaggio('Ladro acchiappato e messo alla porta!');
+      punti += 50; presi++; SFX.preso(); lampi.push({ x: l.x, y: l.y, t: 0, c: '#fff' });
+      l.fuori = true; prossimoLadro = Math.max(prossimoLadro, L.pausa * .7); continue;
+    }
+    if ((l.stato === 'va' || l.stato === 'ruba') && (vicinoC.d < 115 || luci > 0 && vicinoC.d < 260)) {
+      l.stato = 'fugge'; versoPorta(l); messaggio('Il ladro ti ha visto e scappa!');
+    }
+    if (l.stato === 'va') { if (segui(l, 105 * VL, dt)) { l.stato = 'ruba'; l.t = 0; l.bip = 0;
+        messaggio('ALLARME — ' + NOMI_SALA[l.q.stanza] + ', parete ' + (l.q.sopra ? 'nord' : 'sud'), true); } }
+    else if (l.stato === 'ruba') {
+      l.t += dt; if ((l.bip -= dt) <= 0) { SFX.allarme(); l.bip = .55; }
+      if (l.t >= TEMPO_FURTO) { l.q.inMano = true; l.stato = 'porta'; versoPorta(l);
+        messaggio('Ha staccato il quadro! Fermalo prima che esca!', true); }
+    }
+    else if (l.stato === 'porta') { if ((l.bip -= dt) <= 0) { SFX.allarme(); l.bip = .9; }
+      if (segui(l, 128 * VL, dt)) { l.q.rubato = true; l.q.inMano = false; SFX.rubato();
+        messaggio('«' + l.q.titolo + '» è stato rubato.', true); l.fuori = true; } }
+    else if (l.stato === 'fugge') { if (segui(l, 165 * VL, dt)) l.fuori = true; }
+  }
+  if (ladri.some(l => l.fuori)) ladri = ladri.filter(l => !l.fuori);
+}
+
+/* ---------- logica ---------- */
+function comandi(i) {                       // che cosa chiede il giocatore i: girare, avanzare, passo laterale, correre
+  const fr = (tasti.ArrowRight ? 1 : 0) - (tasti.ArrowLeft ? 1 : 0), fa = (tasti.ArrowUp ? 1 : 0) - (tasti.ArrowDown ? 1 : 0);
+  const ad = (tasti.d ? 1 : 0) - (tasti.a ? 1 : 0), ws = (tasti.w ? 1 : 0) - (tasti.s ? 1 : 0);
+  if (modo === 2) return i === 0 ? { giro: ad, avanti: ws, lato: 0, corri: !!tasti.ShiftLeft } : { giro: fr, avanti: fa, lato: 0, corri: !!tasti.ShiftRight };
+  const k = { giro: fr + (mouseDentro ? 0 : ad), avanti: fa || ws, lato: mouseDentro ? ad : 0, corri: !!tasti.Shift };      // col mouse agganciato A e D diventano passi laterali
+  if (leva.id !== null) { k.giro += leva.x; k.avanti = -leva.y; k.corri = k.corri || (leva.y < -.6 && Math.hypot(leva.x, leva.y) > .96); }   // leva a schermo: a fondo corsa si corre
+  k.giro = Math.max(-1, Math.min(1, k.giro));
+  return k;
+}
+function muoviEroe(e, k, dt, avanti, indietro, giri, fattore) {     // movimento comune a custode e struzzo, con una riserva di fiato per la corsa
+  e.ang += k.giro * giri * dt;
+  if (e.fiato === undefined) { e.fiato = 1; e.affanno = false; }
+  const mosso = !!(k.avanti || k.lato);
+  if (k.corri && mosso && k.avanti > 0 && !e.affanno) { e.corre = true; e.fiato = Math.max(0, e.fiato - dt / 3); if (e.fiato <= 0) e.affanno = true; }
+  else { e.corre = false; e.fiato = Math.min(1, e.fiato + dt / 6.5); if (e.fiato > .35) e.affanno = false; }
+  if (!mosso) return false;
+  let va = k.avanti * (k.avanti > 0 ? avanti : indietro), vl = k.lato * indietro * 1.15; const tot = Math.hypot(va, vl), max = Math.max(Math.abs(va), Math.abs(vl));
+  if (tot > max) { va *= max / tot; vl *= max / tot; }                // in diagonale non si va più svelti
+  const m = (e.corre ? 1.42 : 1) * (fattore || 1), c = Math.cos(e.ang), sn = Math.sin(e.ang);
+  muovi(e, (c * va - sn * vl) * m * dt, (sn * va + c * vl) * m * dt);
+  return true;
+}
+function ruotaVista(i, giro, alza) {         // mouse o dito: gira il personaggio e inclina la telecamera
+  const e = eroi[i]; if (!e || stato !== 'gioco') return;
+  if (!e.statua) e.ang += giro;
+  inquadra[i].passo = Math.max(.12, Math.min(.62, inquadra[i].passo + alza));
+}
+function passo(dt) {
+  tempo += dt;
+  if (luci > 0) { luci -= dt; if (luci <= 0) ricarica = LUCI_RICARICA; } else if (ricarica > 0) ricarica -= dt;
+
+  if (ruolo === 'struzzo') { eroi.forEach((s, i) => passoEroeStruzzo(s, i, dt)); if (stato !== 'gioco') return;
+    custodi.forEach(g => passoGuardia(g, dt)); if (stato !== 'gioco') return; }
+  else custodi.forEach((c, i) => {                     // gira, avanza, passo laterale, corsa
+    if (muoviEroe(c, comandi(i), dt, 190, 110, 2.7)) c.fase += dt * (c.corre ? 16 : 12);
+    if (chiave && !chiave.presa && Math.hypot(c.x - chiave.x, c.y - chiave.y) < 28) { chiave.presa = true; chiavi++;
+      suono(1200, 1800, .1, 'triangle', .15); suono(1800, 2400, .18, 'triangle', .15, .1); messaggio('Hai trovato la chiave del cancello!'); }
+    if (cancello && !cancello.aperto && chiavi && Math.hypot(c.x - (cancello.tx + .5) * T, c.y - 8 * T) < 62) { cancello.aperto = true; chiavi--;
+      mappa[7][cancello.tx] = mappa[8][cancello.tx] = 0; suono(200, 90, .5, 'sawtooth', .1); messaggio('Cancello aperto.'); }
+  });
+  for (const e of esche) e.t -= dt; esche = esche.filter(e => e.t > 0);
+  for (const b of transenne) if ((b.t -= dt) <= 0) { mappa[7][b.tx] = mappa[8][b.tx] = 0; messaggio('La transenna è stata tolta.'); }
+  transenne = transenne.filter(b => b.t > 0);
+
+  passoLadri(dt);
+
+  const VS = L.velStruzzi || 1;
+  for (const s of struzzi) {
+    if (s.snob > 0) s.snob -= dt;
+    if (s.q.rientrato || s.giocatore) continue;
+    disincastra(s); s.mangia = false;
+    let esca = null, de = 300; if (ruolo === 'custode') for (const e of esche) { const k = Math.hypot(e.x - s.x, e.y - s.y); if (k < de && stanzaDi(e.x) === stanzaDi(s.x)) { de = k; esca = e; } }
+    // scappa dal custode più vicino (e, un po' meno, dai ladri); col mangime davanti si fida di più
+    let { d, c } = custodeVicino(s.x, s.y), ex = s.x - c.x, ey = s.y - c.y, raggio = esca ? 75 : 150;
+    for (const l of ladri) { const dl = Math.hypot(s.x - l.x, s.y - l.y);
+      if (dl < 80 && dl < d) { d = dl; ex = s.x - l.x; ey = s.y - l.y; raggio = 80; } }
+    let vel = 45 * VS, vaga = false, fuga = false;
+    if (s.attenti > 0) { s.attenti -= dt; vel = 0; }
+    else if (s.scatto > 0) { s.scatto -= dt; vel = 230; }
+    else if (d < raggio) { let fx = ex / (d || 1), fy = ey / (d || 1);                 // via dal pericolo, ma tenendosi discosto da muri e panche
+      for (let k = 0; k < 8; k++) { const cx = Math.cos(k * Math.PI / 4), cy = Math.sin(k * Math.PI / 4);
+        if (solido(s.x + cx * 32, s.y + cy * 32)) { fx -= cx * .35; fy -= cy * .35; } else if (solido(s.x + cx * 58, s.y + cy * 58)) { fx -= cx * .15; fy -= cy * .15; } }
+      s.ang = Math.atan2(fy, fx); vel = 150 * VS; fuga = true; }
+    else if (esca) { if (de > 15) { s.ang = Math.atan2(esca.y - s.y, esca.x - s.x); vel = 85; } else { vel = 0; s.mangia = true; } }
+    else { vaga = true; if ((s.cambio -= dt) < 0) { s.cambio = 1 + Math.random() * 2.5;                // passeggia, scegliendo una direzione sgombra
+        for (let k = 0; k < 8; k++) { s.ang = Math.random() * 6.28; if (!urta(s.x + Math.cos(s.ang) * 55, s.y + Math.sin(s.ang) * 55, s.r)) break; } } }
+    const px = s.x, py = s.y;
+    const libero = muovi(s, Math.cos(s.ang) * vel * dt, Math.sin(s.ang) * vel * dt);
+    const fatto = Math.hypot(s.x - px, s.y - py);
+    if (fatto > .3) s.vista = Math.atan2(s.y - py, s.x - px);                // guarda dove va davvero: lungo un muro, non contro
+    if (!libero && vaga) s.cambio = 0;
+    if (fuga) {                                                             // messo alle strette (in mezzo secondo non si è quasi mosso): scatta di lato e ti sfugge
+      if (!s.rif || Math.hypot(s.x - s.rif.x, s.y - s.rif.y) > 16) { s.rif = { x: s.x, y: s.y }; s.fermo = 0; } else s.fermo += dt;
+      if (s.fermo > .5) { const verso = Math.atan2(-ey, -ex), lato = Math.random() > .5 ? .9 : -.9; s.fermo = 0; s.rif = null; s.scatto = .7; SFX.verso();
+        s.ang = verso + (urta(s.x + Math.cos(verso + lato) * 60, s.y + Math.sin(verso + lato) * 60, s.r) ? -lato : lato); } }           // dal lato dove c'è spazio
+    else s.rif = null;
+    s.fase += dt * (vel > 100 ? 16 : vel > 0 ? 7 : 0);
+    const q = s.q;
+    if (ruolo === 'custode' && !q.rubato && !q.inMano && Math.hypot(s.x - q.x, s.y - q.by) < 52) {
+      q.rientrato = true; q.arte = dipingi(q.src, q.i, true); punti += 100; SFX.rientro();
+      lampi.push({ x: q.x, y: q.by, t: 0, c: q.colore });
+      const nuova = !salva.schede[q.i]; salva.schede[q.i] = true; registra();
+      messaggio('Struzzo rientrato!' + (nuova ? ' Nuova scheda nel catalogo.' : ''));
+    }
+  }
+  // i corpi non si compenetrano: gli struzzi si scostano l'uno dall'altro e, nel turno del custode, anche da lui
+  const inGiro = struzzi.filter(s => !s.q.rientrato && !s.aCasa);
+  const sposta = (o, dx, dy) => { const x0 = o.x, y0 = o.y; muovi(o, dx, dy); return Math.hypot(o.x - x0, o.y - y0); };
+  for (let giro = 0; giro < 2; giro++) for (let a = 0; a < inGiro.length; a++) for (let b = a + 1; b < inGiro.length; b++) {
+    const A = inGiro[a], B = inGiro[b]; let dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy); if (d >= 36) continue;
+    if (d < .5) { dx = Math.cos(a + b); dy = Math.sin(a + b); d = 1; }                                   // esattamente sovrapposti: una direzione qualsiasi
+    const m = 36 - d, ux = dx / d, uy = dy / d, qa = A.giocatore ? 0 : B.giocatore ? 1 : .5, fatto = sposta(A, -ux * m * qa, -uy * m * qa);
+    sposta(B, ux * (m - fatto), uy * (m - fatto)); }                                                     // se uno è contro il muro, si sposta l'altro
+  if (ruolo === 'custode') for (const c of custodi) for (const s of inGiro) { const dx = s.x - c.x, dy = s.y - c.y, d = Math.hypot(dx, dy) || 1; if (d < 32) muovi(s, dx / d * (32 - d), dy / d * (32 - d)); }
+  lampi.forEach(l => l.t += dt); lampi = lampi.filter(l => l.t < 0.8);
+
+  vicino = null; vicinoD = null;
+  if (ruolo === 'struzzo') { aggiornaHud(); $('tocchi').style.display = 'none';
+    if (eroi.every(s => s.aCasa)) finisci(true);
+    else if (tempo >= DURATA) finisci(false, 'È l’alba e sei ancora a spasso: i primi visitatori ti hanno già fotografato.');
+    return; }
+  for (const q of quadri) if (!q.rubato && !q.inMano)
+    for (const c of custodi) if (Math.hypot(c.x - q.x, c.y - q.by) < 70) vicino = q;
+  if (!vicino) for (const d of DECOR) if (d.arte) for (const c of custodi) if (Math.hypot(c.x - d.x, c.y - d.by) < 62) vicinoD = d;
+  $('tocchi').style.display = (vicino || vicinoD) && document.body.classList.contains('touch') ? 'block' : 'none';
+
+  aggiornaHud();
+  const vivi = quadri.filter(q => !q.rubato);
+  if (!vivi.length) finisci(false, 'I ladri hanno svuotato la galleria.');
+  else if (vivi.every(q => q.rientrato) && !ladri.some(l => l.q.inMano)) finisci(true);
+  else if (tempo >= DURATA) finisci(false);
+}
+
+function finisci(vinto, motivo) {
+  stato = 'fine'; $('tocchi').style.display = 'none';
+  const vivi = quadri.filter(q => !q.rubato), dentro = vivi.filter(q => q.rientrato).length, rubati = quadri.length - vivi.length;
+  const ultima = notte === tabella().length - 1, daStruzzo = ruolo === 'struzzo', ora = $('ora').textContent;
+  const bonus = vinto ? Math.floor(DURATA - tempo) * 2 : 0; punti += bonus;
+  let stelle, titolo, testo;
+  if (daStruzzo) {
+    stelle = !vinto ? 0 : Math.max(1, 3 - catture - (rubati ? 1 : 0));
+    titolo = vinto ? (ultima ? 'Hai visto tutta la collezione' : 'Di nuovo in cornice, in tempo') : 'È l’alba…';
+    testo = (motivo ? motivo + ' ' : 'Alle ' + ora + ' sei di nuovo nel tuo quadro, con l’aria di chi non si è mai mosso. ')
+      + 'Opere ammirate: ' + visite.size + ' · catture: ' + catture + (quizOk + quizNo ? ' · quiz: ' + quizOk + (quizOk === 1 ? ' risposta giusta' : ' risposte giuste') + ' su ' + (quizOk + quizNo) : '') + (beccati ? ' · ladri beccati: ' + beccati : '') + (rubati ? ' · quadri rubati: ' + rubati : '');
+  } else {
+    stelle = !vinto ? 0 : rubati === 0 && tempo < DURATA * .8 ? 3 : rubati <= 1 ? 2 : 1;
+    titolo = vinto ? (ultima ? 'La galleria è pronta per l’inaugurazione' : rubati ? 'La galleria è salva (quasi)' : 'Tutti al loro posto') : 'È l’alba…';
+    testo = (motivo ? motivo + ' ' : vinto ? 'Alle ' + ora + ' ogni struzzo è di nuovo nel suo quadro. '
+        : 'Alle 06:00 apre la galleria e ' + (vivi.length - dentro) + (vivi.length - dentro === 1 ? ' struzzo accoglie' : ' struzzi accolgono') + ' ancora i visitatori. ')
+      + 'Quadri rubati: ' + rubati + ' · ladri acchiappati: ' + presi;
+  }
+  vinto ? SFX.vinto() : SFX.perso();
+  $('fineTitolo').textContent = titolo; $('fineStelle').textContent = '★'.repeat(stelle) + '☆'.repeat(3 - stelle);
+  $('fineTesto').textContent = 'Notte ' + (notte + 1) + ' — ' + testo + (bonus ? ' · bonus: ' + bonus : '') + ' · totale: ' + punti + ' punti.';
+  if (vinto) { const m = salva.migliori[chiaveRuolo()] = salva.migliori[chiaveRuolo()] || [], v = m[notte];
+    if (!v || punti > v.p) m[notte] = { p: punti, s: Math.max(stelle, v ? v.s : 0) }; else if (stelle > v.s) v.s = stelle;
+    const k = daStruzzo ? 'sbloccateS' : 'sbloccate'; salva[k] = Math.max(salva[k] || 1, Math.min(tabella().length, notte + 2)); registra(); }
+  aggiornaHud();
+  $('ancora').textContent = vinto ? (ultima ? 'Rigioca questa notte' : 'Notte successiva') : 'Riprova';
+  $('ancora').onclick = () => briefing(vinto && !ultima ? notte + 1 : notte);
+  $('fine').classList.add('on');
+}
+/* ---------- il quiz ----------
+   Quando il custode rimette lo struzzo nel quadro, per uscire di nuovo bisogna rispondere
+   a una domanda su una delle diciotto opere esposte. Dopo ogni risposta compare la scheda
+   dell'opera; una risposta sbagliata costa un po' di notte e porta a un'altra domanda. */
+let quiz = null, quizFatte = new Set(), quizOk = 0, quizNo = 0;
+function nuovaDomanda() {
+  const tutte = QUADRI.concat(DECOR), tipi = ['curiosita', 'curiosita', 'autore', 'titolo', 'luogo', 'anno', 'tecnica'];
+  for (let giro = 0; giro < 80; giro++) {
+    const o = tutte[Math.floor(Math.random() * tutte.length)], tipo = tipi[Math.floor(Math.random() * tipi.length)], id = tipo + ':' + o.file;
+    if (quizFatte.has(id) && giro < 60) continue;
+    let domanda, giusta, sbagliate;
+    if (tipo === 'curiosita') [domanda, giusta, ...sbagliate] = o.quiz;
+    else { giusta = o[tipo]; if (!giusta || (tipo === 'titolo' && !o.img)) continue;                 // senza immagine non si può chiedere il titolo
+      const altre = [...new Set(tutte.map(x => x[tipo]).filter(v => v && v !== giusta))]; if (altre.length < 3) continue;
+      sbagliate = mescola(altre).slice(0, 3);
+      domanda = { autore: 'Chi ha dipinto «' + o.titolo + '»?', titolo: 'Come si intitola quest’opera?', luogo: 'Dove si trova oggi «' + o.titolo + '»?',
+                  anno: 'Quando è stata realizzata «' + o.titolo + '»?', tecnica: 'Con quale tecnica è stata realizzata «' + o.titolo + '»?' }[tipo]; }
+    quizFatte.add(id); return { o, tipo, domanda, giusta, opzioni: mescola([giusta].concat(sbagliate)) };
+  }
+}
+function apriQuiz(s) { stato = 'quiz'; quiz = { s, sbagli: 0 }; $('tocchi').style.display = 'none'; domandaQuiz(); $('quiz').classList.add('on'); }
+function domandaQuiz() {
+  const q = quiz.q = nuovaDomanda(), c = $('qzTela'), im = q.o.img; quiz.risposto = false;
+  $('qzIntro').textContent = quiz.sbagli ? 'Riprova: un’altra domanda.' : 'Il custode ti ha rimesso nel quadro. Per uscire di nuovo dalla cornice, rispondi:';
+  if (im) { c.style.display = ''; const a = Math.min(1.9, Math.max(.6, im.width / im.height)); c.width = 640; c.height = Math.round(640 / a);
+    const k = Math.max(c.width / im.width, c.height / im.height); c.getContext('2d').drawImage(im, (c.width - im.width * k) / 2, (c.height - im.height * k) / 2, im.width * k, im.height * k); }
+  else c.style.display = 'none';
+  $('qzDomanda').textContent = q.domanda; $('qzEsito').textContent = ''; $('qzEsito').className = ''; $('qzAvanti').style.display = 'none';
+  const box = $('qzRisposte'); box.innerHTML = '';
+  q.opzioni.forEach((t, i) => { const b = document.createElement('button'); b.className = 'risposta sec'; b.textContent = (i + 1) + ' · ' + t; b.onclick = () => rispondi(i); box.appendChild(b); });
+}
+function rispondi(i) {
+  if (!quiz || quiz.risposto || i >= quiz.q.opzioni.length) return;
+  const q = quiz.q, ok = q.opzioni[i] === q.giusta; quiz.risposto = true; quiz.ok = ok;
+  [...$('qzRisposte').children].forEach((b, k) => { b.disabled = true; if (q.opzioni[k] === q.giusta) b.classList.add('giusta'); else if (k === i) b.classList.add('sbagliata'); });
+  const scheda = '«' + q.o.titolo + '», ' + q.o.autore + (q.o.anno ? ' (' + q.o.anno + ')' : '') + '. ' + (q.o.testo || '');
+  if (ok) { quizOk++; if (!quiz.sbagli) punti += 30; SFX.rientro(); $('qzEsito').textContent = 'Esatto! ' + scheda; $('qzAvanti').textContent = 'Esci dalla cornice'; }
+  else { quizNo++; quiz.sbagli++; tempo += DURATA / 18; suono(220, 110, .4, 'sawtooth', .1);        // venti minuti di notte
+    $('qzEsito').textContent = 'Non proprio: la risposta giusta è «' + q.giusta + '». ' + scheda + ' Intanto la notte è andata avanti di venti minuti.'; $('qzAvanti').textContent = 'Un’altra domanda'; }
+  $('qzEsito').className = ok ? 'giusta' : 'sbagliata'; $('qzAvanti').style.display = ''; aggiornaHud();
+}
+function avantiQuiz() {
+  if (!quiz || !quiz.risposto) return;
+  if (!quiz.ok) return domandaQuiz();
+  const s = quiz.s, q = s.q; $('quiz').classList.remove('on'); quiz = null;
+  q.rientrato = false; q.arte = dipingi(q.src, q.i, false); s.inv = 3.5; s.uscita = .7; stato = 'gioco'; SFX.verso();
+  messaggio('Di nuovo fuori! Hai qualche secondo prima che il custode si riprenda.'); agganciaMouse();
+}
+
+/* ---------- giocare da struzzo ---------- */
+function statuaPremuta(i) { const a = tasti.e || tasti[' '] || tasti.statua || tasti.mouse; return modo === 1 ? a || tasti.Enter : i === 0 ? a : tasti.Enter; }
+const opere = () => quadri.filter(q => !q.rubato && !q.inMano).map(q => ({ k: 'q' + q.i, x: q.x, y: q.by, r: 70, o: q }))
+  .concat(DECOR.map((d, j) => ({ k: 'd' + j, x: d.x, y: d.by, r: 62, o: d })));
+function aCasa(s) { const q = s.q; s.aCasa = true; q.rientrato = true; q.arte = dipingi(q.src, q.i, true); lampi.push({ x: q.x, y: q.by, t: 0, c: q.colore }); }
+function passoEroeStruzzo(s, i, dt) {
+  if (s.aCasa) return;
+  disincastra(s);
+  if (s.uscita > 0) { s.uscita -= dt; const k = 1 - Math.max(0, s.uscita) / .7; s.scala = .25 + .75 * k; s.salto = Math.sin(k * Math.PI) * .8;   // salta fuori dal quadro
+    if (s.uscita <= 0) { s.scala = 1; s.salto = 0; } }
+  const q = s.q;
+  s.inv = Math.max(0, s.inv - dt); s.turbo = Math.max(0, s.turbo - dt);
+  s.statua = !!statuaPremuta(i);                       // testa sotto la sabbia: immobile, da lontano sembra una scultura
+  const k = s.statua ? FERMO : comandi(i); if (s.turbo > 0) k.corri = false;                     // con i chicchi corre già a più non posso
+  if (muoviEroe(s, k, dt, 185, 100, 3, s.turbo > 0 ? 1.45 : 1)) s.fase += dt * (s.turbo > 0 || s.corre ? 20 : 15);
+  // chicchi: qualche secondo di corsa sfrenata
+  let mangiato = false;
+  for (const e of esche) if (e.t > 0 && Math.hypot(e.x - s.x, e.y - s.y) < 28) { e.t = 0; mangiato = true; }
+  if (mangiato) { s.turbo = 6; punti += 20; suono(900, 1400, .08, 'triangle', .14); suono(1400, 2000, .12, 'triangle', .14, .08);
+    messaggio('Chicchi! Qualche secondo di corsa sfrenata.'); esche.push(Object.assign(postoLibero(STANZE[Math.floor(Math.random() * 3)]), { t: 9999 })); }
+  // ammirare un'opera: basta fermarsi davanti un momento
+  let davanti = null; for (const a of opere()) if (!visite.has(a.k) && Math.hypot(a.x - s.x, a.y - s.y) < a.r) { davanti = a; break; }
+  if (davanti && davanti.k === s.guardaK) { s.guardaT += dt;
+    if (s.guardaT >= 1.1) { visite.add(davanti.k); punti += 50; s.guardaK = null; suono(660, 660, .12, 'triangle', .14); suono(990, 990, .25, 'triangle', .14, .12);
+      if (visite.size === L.opere) { messaggio('Hai visto abbastanza: ora torna nel tuo quadro prima dell’alba!', true); [523, 659, 784].forEach((f, k) => suono(f, f, .2, 'triangle', .15, .3 + k * .12)); }
+      else messaggio('«' + davanti.o.titolo + '», ' + davanti.o.autore + ' — ' + visite.size + '/' + L.opere); } }
+  else { s.guardaK = davanti ? davanti.k : null; s.guardaT = 0; }
+  // beccare i ladri
+  for (const l of ladri) if (l.stato !== 'fugge' && Math.hypot(l.x - s.x, l.y - s.y) < 32) { l.q.inMano = false; l.stato = 'fugge'; versoPorta(l);
+    punti += 100; beccati++; SFX.preso(); lampi.push({ x: l.x, y: l.y, t: 0, c: '#ffffff' }); messaggio('Beccato! Il ladro molla tutto e scappa.'); }
+  // a missione compiuta, si rientra nella propria cornice
+  if (visite.size >= L.opere && Math.hypot(s.x - q.x, s.y - q.by) < 52) { aCasa(s); SFX.rientro(); }
+}
+
+/* ---------- il custode automatico ---------- */
+const PATTUGLIA = [[180, 200], [180, 440], [100, 320], [480, 220], [480, 420], [780, 200], [780, 440], [860, 320], [330, 320], [630, 320]];
+function libera(ax, ay, bx, by) {                       // nessun muro né panca sulla linea (con un po' di margine ai lati)
+  const d = Math.hypot(bx - ax, by - ay) || 1, n = Math.ceil(d / 10), px = -(by - ay) / d * 15, py = (bx - ax) / d * 15;
+  for (let k = 1; k < n; k++) { const x = ax + (bx - ax) * k / n, y = ay + (by - ay) * k / n; if (solido(x, y, 1) || solido(x + px, y + py, 1) || solido(x - px, y - py, 1)) return false; }
+  return true; }
+function versoMeta(g, mx, my) {                         // dritto se la via è libera, altrimenti lungo la griglia
+  if (libera(g.x, g.y, mx, my)) { g.via = [{ x: mx, y: my }]; return; }
+  const v = percorso(g.x, g.y, Math.floor(mx / T), Math.floor(my / T)); if (v.length > 1) v.shift(); v.push({ x: mx, y: my }); g.via = v; }
+function vede(g, s) {
+  const dx = s.x - g.x, dy = s.y - g.y, d = Math.hypot(dx, dy);
+  if (s.inv > 0 || s.aCasa || s.snob > 0) return false;
+  if (d < 46) return true;                              // a un passo ti vede comunque
+  if (d > (s.giocatore ? 250 : 130)) return false;
+  let da = Math.atan2(dy, dx) - g.ang; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) > .75) return false;   // fuori dal fascio della torcia
+  if (s.statua && !(g.statoG === 'insegue' && g.bersaglio === s)) return false;
+  for (let k = 1; k < d / 16; k++) if (muro(g.x + dx * k * 16 / d, g.y + dy * k * 16 / d)) return false;
+  return true; }
+function cattura(g, s) {
+  g.statoG = 'ronda'; g.via = []; g.pausa = 2.4; lampi.push({ x: s.x, y: s.y, t: 0, c: '#ffffff' });
+  if (!s.giocatore) { s.q.rientrato = true; s.q.arte = dipingi(s.q.src, s.q.i, true); suono(520, 780, .12, 'triangle', .1); return; }
+  catture++; SFX.rubato();
+  const q = s.q;
+  if (visite.size >= L.opere) { aCasa(s); messaggio('Il custode ti ha riportato a casa lui. Vale lo stesso!'); return; }
+  s.x = q.x; s.y = q.by + (q.sopra ? 45 : -45); s.ang = q.sopra ? Math.PI / 2 : -Math.PI / 2; s.turbo = 0; s.statua = false;
+  q.rientrato = true; q.arte = dipingi(q.src, q.i, true);                // di nuovo dentro la cornice, finché non risponde al quiz
+  apriQuiz(s);
+}
+function passoGuardia(g, dt) {
+  g.avviso -= dt; g.rip -= dt;
+  if (g.pausa > 0) { g.pausa -= dt; g.ang += dt * .9; return; }          // si ferma e si guarda intorno
+  const VG = L.velG || 1;
+  let visto = null, dv = 1e9;
+  for (const s of struzzi) if (!s.q.rientrato && vede(g, s)) { const d = Math.hypot(s.x - g.x, s.y - g.y) - (s.giocatore ? 60 : 0); if (d < dv) { dv = d; visto = s; } }
+  if (visto) {
+    if (visto.giocatore && !(g.statoG === 'insegue' && g.bersaglio === visto) && g.avviso <= 0) { messaggio('Il custode ti ha visto!', true); suono(700, 1000, .1, 'square', .1); suono(1000, 1300, .14, 'square', .1, .1); g.avviso = 5; }
+    if (g.bersaglio !== visto) g.tInseg = 0;
+    g.statoG = 'insegue'; g.bersaglio = visto; g.perso = 0; g.ultimo = { x: visto.x, y: visto.y };
+  }
+  if (g.statoG === 'insegue') {
+    const b = g.bersaglio; g.tInseg += dt;
+    if (b.q.rientrato || b.aCasa) { g.statoG = 'ronda'; g.via = []; return; }
+    if (Math.hypot(b.x - g.x, b.y - g.y) < 27 && !(b.inv > 0)) return cattura(g, b);
+    if (!b.giocatore && g.tInseg > 5) { b.snob = 9; g.statoG = 'ronda'; g.via = []; g.pausa = 1; return; }      // lascia perdere gli struzzi più svelti di lui
+    if (!visto) g.perso += dt;
+    if (g.rip <= 0) { const m = visto ? b : g.ultimo; versoMeta(g, m.x, m.y); g.rip = .3; }
+    const arrivato = segui(g, 152 * VG, dt);
+    if (!visto && (arrivato || g.perso > 4)) { g.statoG = 'ronda'; g.via = []; g.pausa = 1.6; if (b.giocatore) messaggio('Il custode ti ha perso di vista.'); }
+    return;
+  }
+  const lad = ladri.find(l => l.stato === 'ruba' || l.stato === 'porta');          // allarme: corre dal ladro
+  if (lad) { if (g.rip <= 0) { versoMeta(g, lad.x, lad.y); g.rip = .5; } segui(g, 165 * VG, dt); return; }
+  if (!g.via.length) { const p = PATTUGLIA[Math.floor(Math.random() * PATTUGLIA.length)]; versoMeta(g, p[0], p[1]); if (Math.random() < .35) g.pausa = 1.2; }
+  segui(g, 92 * VG, dt);
+}
+
+/* ---------- il filmato d'apertura ---------- */
+const BATTUTE = [[.4, 4.3, 'Mezzanotte. La galleria è chiusa e i capolavori, finalmente, riposano.'],
+  [4.9, 8.0, 'Quasi tutti. Nella «Notte stellata» qualcuno si annoiava da più di un secolo.'],
+  [8.5, 12.4, 'Il custode ha idee molto precise su dove debbano stare gli struzzi.'],
+  [12.9, 16.9, 'E c’è chi, i quadri, preferirebbe portarseli direttamente a casa.']];
+function vaiA(e, vel, dt) {
+  if (!e.rotta || !e.rotta.length) return true;
+  const p = e.rotta[0], dx = p[0] - e.x, dy = p[1] - e.y, d = Math.hypot(dx, dy), st = vel * dt;
+  if (d <= st) { e.x = p[0]; e.y = p[1]; e.rotta.shift(); } else { e.x += dx / d * st; e.y += dy / d * st; e.ang = Math.atan2(dy, dx); }
+  e.fase += dt * vel / 12; return !e.rotta.length;
+}
+function avviaFilm() {
+  ruolo = 'custode'; modo = 1; notte = 0; prepara(); nascondi();
+  quadri.forEach(q => { if (!q.rientrato) { q.rientrato = true; q.arte = dipingi(q.src, q.i, true); } });
+  const c = custodi[0]; c.x = 470; c.y = 320; c.ang = Math.PI;
+  film = { t: 0, fatto: {}, cam: [4.5, 1.8, 9.6], look: [4.5, 2.1, 1] }; stato = 'film';
+  document.body.classList.add('film'); $('filmTesto').textContent = '';
+}
+function fineFilm() { if (!film) return; film = null; document.body.classList.remove('film'); salva.introVista = true; registra(); ladri = []; prepara(); menu(); }
+function passoFilm(dt) {
+  const f = film; f.t += dt; const t = f.t, s = struzzi[0], q = quadri[0], c = custodi[0], una = (k, fn) => { if (!f.fatto[k]) { f.fatto[k] = 1; fn(); } };
+  const b = BATTUTE.find(b => t >= b[0] && t < b[1]); $('filmTesto').textContent = b ? b[2] : '';
+  lampi.forEach(l => l.t += dt); lampi = lampi.filter(l => l.t < 0.8);
+  if (t < 4.3) { f.cam = [4.5, 1.8, 9.6 - t * .7]; f.look = [4.5, 2.1, 1]; }                                 // 1. la sala addormentata
+  else if (t < 8.2) { f.cam = [6.7 - (t - 4.3) * .12, 1.5, 5.5]; f.look = [4.5, 1.35, 2.7];                   // 2. lo struzzo salta fuori dal quadro
+    if (t > 4.9) una('pop', () => { q.rientrato = false; q.arte = dipingi(q.src, 0, false); s.x = 180; s.y = 62; s.ang = Math.PI / 2; SFX.verso(); lampi.push({ x: 180, y: 80, t: 0, c: q.colore }); });
+    if (f.fatto.pop) { const k = Math.min(1, (t - 4.9) / .7); s.y = 62 + k * 70; s.scala = .25 + .75 * k; s.salto = Math.sin(k * Math.PI) * .9;
+      if (k < 1) s.fase += dt * 12; else { s.salto = 0; s.ang = Math.PI / 2 + Math.sin((t - 5.6) * 2.2) * .9; } } }
+  else if (t < 12.6) { f.cam = [2.7, 3.1, 14.3]; f.look = [4.6, .9, 8];                                       // 3. arriva il custode: inseguimento
+    una('entra', () => { c.x = 450; c.y = 320; c.rotta = [[300, 320]]; s.ang = 0; s.scala = 1; });
+    if (t > 9.4) una('fuga', () => { SFX.verso(); s.scatto = .9;
+      s.rotta = [[90, 300], [100, 500], [250, 560], [290, 400], [300, 320], [460, 320], [560, 220]]; c.rotta = [[230, 420], [140, 520], [250, 570], [300, 330], [460, 320], [560, 420]]; });
+    vaiA(c, f.fatto.fuga ? 150 : 100, dt); if (f.fatto.fuga) { vaiA(s, 235, dt); s.scatto = Math.max(0, s.scatto - dt); } }
+  else if (t < 17.1) {                                                                                        // 4. dalla porta entra il ladro
+    una('ladro', () => { ladri = [{ x: 60, y: 300, r: 11, stato: 'va', q: quadri[3], t: 0, fase: 0, ang: 0, bip: 0, via: [], rotta: [[100, 330], [160, 480], [180, 545]] }]; suono(180, 240, .5, 'sawtooth', .05); });
+    const l = ladri[0]; if (vaiA(l, 85, dt)) { una('allarme', () => SFX.allarme()); l.stato = 'ruba'; l.ang = Math.PI / 2; l.t = Math.min(TEMPO_FURTO * .9, l.t + dt); }
+    f.cam = [7.3, 1.7, 10.6]; f.look = [l.x * U, 1.1, l.y * U]; vaiA(c, 150, dt); vaiA(s, 235, dt); }
+  else fineFilm();
+}
+
+
+/* ---------- disegno 3D ---------- */
+const U = 1 / T, ALT = 4;                       // 1 casella della mappa = 1 unità
+const rend = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+rend.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+rend.outputEncoding = THREE.sRGBEncoding; rend.toneMapping = THREE.ACESFilmicToneMapping; rend.toneMappingExposure = 1.0;
+rend.shadowMap.enabled = true; rend.shadowMap.type = THREE.PCFSoftShadowMap;
+const scena = new THREE.Scene(); scena.background = new THREE.Color(0x04040a); scena.fog = new THREE.Fog(0x04040a, 7, 28);
+const ambiente = new THREE.HemisphereLight(0x8fa0ff, 0x241a12, .3); scena.add(ambiente);
+const NOTTE = new THREE.Color(0x8fa0ff), ALBA = new THREE.Color(0xffb27a), V = new THREE.Vector3();
+const mat = (c, o) => new THREE.MeshPhongMaterial(Object.assign({ color: c, shininess: 10 }, o));
+function trama(w, h, f, rx, ry) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; f(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
+  if (rx) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); }
+  return t;
+}
+function pezzo(geo, m, x, y, z, padre) { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; padre.add(o); return o; }
+
+// pavimento in parquet, soffitto, muri
+const pav = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), mat(0xffffff, { shininess: 70, specular: 0x4a3a2a,
+  map: trama(256, 256, (x, w, h) => { const r = rng(7); x.fillStyle = '#7d5a3c'; x.fillRect(0, 0, w, h);
+    for (let riga = 0; riga < 8; riga++) for (let k = -1; k < 3; k++) { const l = 128, x0 = k * l + (riga % 2) * 64, t = r();
+      x.fillStyle = 'rgb(' + (120 + t * 45 | 0) + ',' + (84 + t * 34 | 0) + ',' + (54 + t * 24 | 0) + ')'; x.fillRect(x0 + 1, riga * 32 + 1, l - 2, 30);
+      x.strokeStyle = 'rgba(0,0,0,.18)'; for (let v = 0; v < 3; v++) { const yy = riga * 32 + 5 + r() * 22; x.beginPath(); x.moveTo(x0, yy); x.lineTo(x0 + l, yy + r() * 4 - 2); x.stroke(); } } }, 12, 8) }));
+pav.rotation.x = -Math.PI / 2; pav.position.set(MW / 2, 0, MH / 2); pav.receiveShadow = true; scena.add(pav);
+const soff = new THREE.Mesh(new THREE.PlaneGeometry(MW, MH), mat(0x2b2a33, { shininess: 2 })); soff.rotation.x = Math.PI / 2; soff.position.set(MW / 2, ALT, MH / 2); scena.add(soff);
+{ const celle = []; for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) if (mappa[y][x] === 1) celle.push([x, y]);
+  const muri = new THREE.InstancedMesh(new THREE.BoxGeometry(1, ALT, 1), mat(0x241812, { shininess: 25 }), celle.length);
+  const m4 = new THREE.Matrix4(); celle.forEach(([x, y], i) => { m4.makeTranslation(x + .5, ALT / 2, y + .5); muri.setMatrixAt(i, m4); });
+  muri.castShadow = muri.receiveShadow = true; scena.add(muri); }
+// ogni sala ha la sua tappezzeria damascata, con boiserie, cornice dorata e cornicione
+function tappezzeria(base) { return trama(512, 1024, (x, w, h) => {
+  const r = rng(3); x.fillStyle = base; x.fillRect(0, 0, w, h);
+  x.globalAlpha = .13; x.fillStyle = x.strokeStyle = '#fff'; x.lineWidth = 2;
+  for (let j = -1; j < 9; j++) for (let i = 0; i < 5; i++) { x.save(); x.translate(i * 128 + (j % 2 ? 64 : 0), j * 128 + 40);
+    for (let k = 0; k < 4; k++) { x.rotate(Math.PI / 2); x.beginPath(); x.moveTo(0, -6); x.bezierCurveTo(22, -18, 24, -44, 0, -56); x.bezierCurveTo(-24, -44, -22, -18, 0, -6); x.fill(); }
+    x.beginPath(); x.arc(0, 0, 8, 0, 7); x.fill();
+    x.beginPath(); x.moveTo(-64, 0); x.quadraticCurveTo(-20, -20, 0, -64); x.quadraticCurveTo(20, -20, 64, 0); x.quadraticCurveTo(20, 20, 0, 64); x.quadraticCurveTo(-20, 20, -64, 0); x.stroke(); x.restore(); }
+  x.globalAlpha = 1;
+  for (let k = 0; k < 2600; k++) { x.fillStyle = 'rgba(' + (r() > .5 ? '255,255,255' : '0,0,0') + ',.04)'; x.fillRect(r() * w, r() * h, 2, 5); }
+  const y0 = h * .72; x.fillStyle = '#2a1b13'; x.fillRect(0, y0, w, h - y0);
+  for (let i = 0; i < 2; i++) { const px = i * 256 + 22; x.fillStyle = '#36241a'; x.fillRect(px, y0 + 36, 212, h - y0 - 92);
+    x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = 5; x.strokeRect(px, y0 + 36, 212, h - y0 - 92);
+    x.strokeStyle = 'rgba(255,215,160,.13)'; x.lineWidth = 2; x.strokeRect(px + 9, y0 + 45, 194, h - y0 - 110); }
+  x.fillStyle = '#b8964a'; x.fillRect(0, y0 - 9, w, 11); x.fillStyle = 'rgba(0,0,0,.4)'; x.fillRect(0, y0 + 2, w, 5);
+  x.fillStyle = '#150e09'; x.fillRect(0, h - 38, w, 38);
+  x.fillStyle = '#cdc2a8'; x.fillRect(0, 0, w, 60); x.fillStyle = 'rgba(0,0,0,.22)'; [16, 34, 54].forEach(y => x.fillRect(0, y, w, 4));
+  x.fillStyle = '#b8964a'; x.fillRect(0, 60, w, 6); }); }
+function parete(m, cx, cz, len, rotY) { const g = new THREE.PlaneGeometry(len, ALT), uv = g.attributes.uv;
+  for (let k = 0; k < uv.count; k++) uv.setX(k, uv.getX(k) * len / 2);
+  const o = new THREE.Mesh(g, m); o.position.set(cx, ALT / 2, cz); o.rotation.y = rotY; o.receiveShadow = true; scena.add(o); }
+['#6b1f26', '#1f4a3c', '#22365c'].forEach((tinta, r) => { const s = STANZE[r], t = tappezzeria(tinta); t.wrapS = THREE.RepeatWrapping;
+  const m = mat(0xffffff, { map: t, shininess: 6 }), a = s.x0, b = s.x1 + 1;
+  parete(m, (a + b) / 2, 1.004, b - a, 0); parete(m, (a + b) / 2, MH - 1.004, b - a, Math.PI);
+  [[a + .004, Math.PI / 2, r === 0], [b - .004, -Math.PI / 2, r === 2]].forEach(([x, rot, pieno]) => {
+    parete(m, x, 4, 6, rot); parete(m, x, 12, 6, rot); if (pieno) parete(m, x, 8, 2, rot); }); });
+{ const noce = mat(0x2c1b12, { shininess: 35, specular: 0x553a22 });               // passaggi tra le sale
+  [8, 15].forEach(x => { pezzo(new THREE.BoxGeometry(1.1, 1, 2), noce, x + .5, 3.5, 8, scena);
+    [7.07, 8.93].forEach(z => pezzo(new THREE.BoxGeometry(1.1, 3, .14), noce, x + .5, 1.5, z, scena)); }); }
+{ const marmo = mat(0xd9d4ca, { shininess: 70, specular: 0x666666 }), ceramica = mat(0x2d4f7c, { shininess: 100, specular: 0xaaaaaa, side: THREE.DoubleSide });
+  const profilo = [[0, 0], [.15, 0], [.19, .05], [.29, .3], [.32, .5], [.25, .72], [.12, .84], [.11, .92], [.18, 1.0], [.16, 1.02]].map(p => new THREE.Vector2(p[0], p[1]));
+  VASI.forEach(([x, y]) => { pezzo(new THREE.BoxGeometry(.66, 1, .66), marmo, x + .5, .5, y + .5, scena).receiveShadow = true;
+    pezzo(new THREE.BoxGeometry(.8, .08, .8), marmo, x + .5, 1.04, y + .5, scena); pezzo(new THREE.BoxGeometry(.8, .1, .8), marmo, x + .5, .05, y + .5, scena);
+    pezzo(new THREE.LatheGeometry(profilo, 32), ceramica, x + .5, 1.08, y + .5, scena);
+    pezzo(new THREE.TorusGeometry(.3, .025, 8, 32), mat(0xb8964a, { shininess: 90 }), x + .5, 1.6, y + .5, scena).rotation.x = Math.PI / 2; }); }
+// panche
+{ const velluto = mat(0x5b1f2a, { shininess: 2 }), legnoScuro = mat(0x2a1a14);
+  BANCHI.forEach(([x, y]) => { pezzo(new THREE.BoxGeometry(.96, .32, .96), legnoScuro, x + .5, .16, y + .5, scena).receiveShadow = true;
+    pezzo(new THREE.BoxGeometry(.9, .14, .9), velluto, x + .5, .39, y + .5, scena).receiveShadow = true; }); }
+// porte con insegna luminosa
+PORTE.forEach(p => { const x = p.wx ? MW - 1.04 : 1.04;
+  pezzo(new THREE.BoxGeometry(.08, 2.7, 1.7), mat(0x1f3d2b, { shininess: 40 }), x, 1.35, 8, scena);
+  pezzo(new THREE.SphereGeometry(.06, 8, 8), mat(0xd9b45a, { shininess: 90 }), x + (p.wx ? -.07 : .07), 1.25, 8.6, scena);
+  const ins = new THREE.Mesh(new THREE.BoxGeometry(.06, .24, .7), new THREE.MeshBasicMaterial({ color: 0x7cffb2 })); ins.position.set(x, 3.05, 8); scena.add(ins);
+  const l = new THREE.PointLight(0x7cffb2, .55, 5); l.position.set(x + (p.wx ? -.6 : .6), 2.8, 8); scena.add(l); });
+// colori dei nastri: materiali che non risentono di luci, ombre e resa dei toni, così restano sempre gli stessi
+const tintaPura = c => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).convertSRGBToLinear(), toneMapped: false });
+const DISCO = new THREE.CircleGeometry(1, 28);
+const DISTINTIVI = QUADRI.map((q, i) => new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, side: THREE.DoubleSide, map: trama(128, 128, x => {
+  x.fillStyle = q.colore; x.beginPath(); x.arc(64, 64, 58, 0, 7); x.fill(); x.lineWidth = 8; x.strokeStyle = '#0c0c0c'; x.stroke();
+  x.fillStyle = i === 1 || i === 5 ? '#141414' : '#ffffff'; simbolo(x, i, 64, 64, 27); x.fill(); }) }));
+// cornici dorate a gradini, lampada da quadro, alone di luce sulla parete e targhetta
+const oro = mat(0xb08d3c, { shininess: 90, specular: 0xffe2a0, map: trama(128, 128, (x, w, h) => { const r = rng(5); x.fillStyle = '#d2ac58'; x.fillRect(0, 0, w, h);
+  for (let k = 0; k < 600; k++) { x.fillStyle = 'rgba(' + (r() > .5 ? '255,238,180' : '80,50,10') + ',.2)'; x.fillRect(r() * w, r() * h, 2 + r() * 6, 2); } }) });
+const oroScuro = mat(0x6e5320, { shininess: 60, specular: 0xcfa85a });
+const alone = trama(256, 256, (x, w, h) => { const g2 = x.createRadialGradient(128, 96, 8, 128, 128, 128);
+  g2.addColorStop(0, 'rgba(255,226,170,.55)'); g2.addColorStop(.45, 'rgba(255,205,140,.2)'); g2.addColorStop(.75, 'rgba(255,195,125,.06)'); g2.addColorStop(1, 'rgba(255,190,120,0)'); x.fillStyle = g2; x.fillRect(0, 0, w, h); });
+const cartellino = trama(128, 80, (x, w, h) => { x.fillStyle = '#efe8d6'; x.fillRect(0, 0, w, h); x.fillStyle = '#2a2a2a'; x.fillRect(12, 14, 72, 7);
+  x.fillStyle = '#777'; [34, 46, 58].forEach((y, k) => x.fillRect(12, y, 100 - k * 14, 3)); });
+const CUBO = new THREE.BoxGeometry(1, 1, 1), PIANO = new THREE.PlaneGeometry(1, 1);
+function misura(o, a) { const h = Math.min(2.45, 3.3 / a), w = h * a; o.w = w; o.h = h;
+  o.cornice.scale.set(w + .5, h + .5, .14); o.gola.scale.set(w + .36, h + .36, .16); o.bordo.scale.set(w + .2, h + .2, .2); o.filetto.scale.set(w + (o.col ? .14 : .07), h + (o.col ? .14 : .07), .21);
+  if (o.simbolo) o.simbolo.position.set(-(w / 2 + .62), -h / 2 + .32, .03);
+  o.tela.scale.set(w, h, 1); o.vuoto.scale.set(w, h, 1); o.glow.scale.set(w + 2.8, h + 2.5, 1); o.glow.position.y = .3;
+  o.lampada.position.y = o.braccio.position.y = h / 2 + .42; o.lampada.scale.y = Math.min(1.3, w * .45);
+  o.etichetta.position.set(w / 2 + .62, -h / 2 + .3, .02); }
+function appendi(x, z, rotY, colore, conFaro) {
+  const gph = new THREE.Group(); gph.position.set(x, 2.1, z); gph.rotation.y = rotY; scena.add(gph);
+  const o = { gph, arte: null };
+  o.glow = new THREE.Mesh(PIANO, new THREE.MeshBasicMaterial({ map: alone, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: .5 })); o.glow.position.z = .012; gph.add(o.glow);
+  o.cornice = pezzo(CUBO, oro, 0, 0, .07, gph); o.gola = pezzo(CUBO, oroScuro, 0, 0, .08, gph); o.bordo = pezzo(CUBO, oro, 0, 0, .1, gph);
+  o.col = !!colore; o.filetto = pezzo(CUBO, colore ? tintaPura(colore) : oroScuro, 0, 0, .105, gph);
+  o.tela = new THREE.Mesh(PIANO, mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: conFaro ? .1 : .3, shininess: 0 })); o.tela.position.z = .215; gph.add(o.tela);
+  o.vuoto = new THREE.Mesh(PIANO, mat(0x1c2026)); o.vuoto.position.z = .215; o.vuoto.visible = false; gph.add(o.vuoto);
+  o.lampada = pezzo(new THREE.CylinderGeometry(.045, .045, 1, 10), mat(0x8a6a2a, { shininess: 90, specular: 0xffe2a0 }), 0, 0, .42, gph); o.lampada.rotation.z = Math.PI / 2;
+  o.braccio = pezzo(new THREE.BoxGeometry(.04, .04, .4), oroScuro, 0, 0, .2, gph);
+  o.etichetta = new THREE.Mesh(PIANO, mat(0xffffff, { map: cartellino, emissive: 0xffffff, emissiveIntensity: .1 })); o.etichetta.scale.set(.5, .31, 1); gph.add(o.etichetta);
+  misura(o, 4 / 3); return o;
+}
+function vesti(o, tela) { if (o.tela.material.map) o.tela.material.map.dispose();
+  const t = new THREE.CanvasTexture(tela); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
+  o.tela.material.map = o.tela.material.emissiveMap = t; o.tela.material.needsUpdate = true; o.arte = tela; misura(o, tela.width / tela.height); }
+// i sei quadri del gioco: pareti nord e sud, con faretto vero e cerchio a terra
+const Q3 = QUADRI.map((q, i) => {
+  const stanza = i % 3, sopra = i < 3, o = appendi(CENTRI[stanza] * U, sopra ? 1.01 : MH - 1.01, sopra ? 0 : Math.PI, q.colore, true);
+  o.tinta = new THREE.Color(q.colore).convertSRGBToLinear();
+  o.simbolo = new THREE.Mesh(DISCO, DISTINTIVI[i]); o.simbolo.scale.setScalar(.25); o.gph.add(o.simbolo);                 // distintivo accanto alla cornice
+  o.barra = new THREE.Mesh(CUBO, new THREE.MeshBasicMaterial({ color: 0xff2d2d })); o.barra.position.z = .25; o.gph.add(o.barra);
+  o.anello = new THREE.Mesh(new THREE.RingGeometry(.72, .88, 48), Object.assign(tintaPura(q.colore), { transparent: true, depthWrite: false }));
+  o.anello.rotation.x = -Math.PI / 2; o.anello.position.set(CENTRI[stanza] * U, .02, (sopra ? 78 : 562) * U); scena.add(o.anello);
+  o.segno = new THREE.Mesh(DISCO, Object.assign(DISTINTIVI[i].clone(), { depthWrite: false })); o.segno.scale.setScalar(.36); o.segno.rotation.x = -Math.PI / 2; o.segno.position.set(CENTRI[stanza] * U, .024, (sopra ? 78 : 562) * U); scena.add(o.segno); if (!sopra) o.segno.rotation.z = Math.PI;   // lo stesso simbolo al centro del cerchio, dritto per chi arriva dalla sala
+  o.faro = new THREE.SpotLight(0xfff0d2, 1, 8, .62, .7, 1); o.faro.position.set(o.gph.position.x, ALT - .1, o.gph.position.z + (sopra ? 1.7 : -1.7));
+  o.faro.target = o.gph; scena.add(o.faro);
+  return o;
+});
+// le dodici opere alle pareti laterali, due per parete
+{ const posti = []; STANZE.forEach(s => [4, 12].forEach(z => { posti.push([s.x0 + .01, z, Math.PI / 2, 1]); posti.push([s.x1 + .99, z, -Math.PI / 2, -1]); }));
+  DECOR.forEach((d, j) => { const [x, z, rot, dir] = posti[j]; d.o = appendi(x, z, rot, null, false); d.o.gph.visible = false;
+    d.x = (x + dir * .95) * T; d.by = z * T; }); }
+let vicinoD = null;
+const lampo = new THREE.PointLight(0xffffff, 0, 9); scena.add(lampo);
+
+/* modelli articolati: guardano verso +X (la destra del personaggio è +Z), poi vengono ruotati secondo la direzione.
+   Ogni arto è una catena di perni: ruotando un perno attorno a Z l'arto oscilla avanti (+) e indietro (-). */
+function perno(x, y, z, padre) { const g = new THREE.Group(); g.position.set(x, y, z); padre.add(g); return g; }
+function osso(m, r0, r1, l, padre) { return pezzo(new THREE.CylinderGeometry(r0, r1, l, 12), m, 0, -l / 2, 0, padre); }
+function palla(m, r, x, y, z, padre, sx, sy, sz) { const o = pezzo(new THREE.SphereGeometry(r, 16, 12), m, x, y, z, padre); if (sx) o.scale.set(sx, sy, sz); return o; }
+// piumaggio: tante piume schiacciate disegnate in un colpo solo, ognuna con la sua posizione, direzione e tinta
+const PIUMA = new THREE.SphereGeometry(1, 12, 8), FINTO = new THREE.Object3D(), TINTA = new THREE.Color();
+function piume(padre, lista) {
+  const im = new THREE.InstancedMesh(PIUMA, mat(0xffffff, { shininess: 5, specular: 0x16161a }), lista.length);
+  lista.forEach((f, i) => { FINTO.position.set(f.p[0], f.p[1], f.p[2]); FINTO.up.set(f.su[0], f.su[1], f.su[2]); FINTO.lookAt(f.p[0] + f.dir[0], f.p[1] + f.dir[1], f.p[2] + f.dir[2]);
+    FINTO.scale.set(f.w, f.h, f.l); FINTO.updateMatrix(); im.setMatrixAt(i, FINTO.matrix); im.setColorAt(i, TINTA.set(f.col)); });
+  im.castShadow = true; padre.add(im); return im;
+}
+const SCURI = ['#141418', '#1b1b21', '#23232b', '#2b2a31'];
+
+function modStruzzo(col, indice) {
+  const s = new THREE.Group(), u = s.userData, r = rng(Math.floor(Math.random() * 1e4) + 1);
+  const nero = mat(0x17171b, { shininess: 30, specular: 0x333340 }), pelle = mat(0xdfa893, { shininess: 14 }), zampa = mat(0xc99a88, { shininess: 30 }), corno = mat(0x3d312b, { shininess: 60 });
+  const lana = tintaPura(col), distintivo = (padre, x, y, z, rotY, k) => { const d = new THREE.Mesh(DISCO, DISTINTIVI[indice]); d.position.set(x, y, z); d.rotation.y = rotY; d.scale.setScalar(k); padre.add(d); };
+  const c = u.corpo = perno(0, 1.05, 0, s), busto = perno(0, 0, 0, c); busto.rotation.z = .1;
+  palla(nero, .34, 0, .06, 0, busto, 1.42, .93, .98);
+  const manto = [];                                                                   // piume del dorso e dei fianchi, a file sfalsate
+  [-.42, -.3, -.18, -.06, .06, .18, .3, .4].forEach((x, i) => { const rr = Math.sqrt(Math.max(.05, 1 - (x / .5) ** 2)), nn = i < 2 ? 8 : 11;
+    for (let k = 0; k < nn; k++) { const th = -2.25 + 4.5 * (k + (i % 2) * .5) / nn, y = .33 * rr * Math.cos(th), z = .35 * rr * Math.sin(th);
+      const nx = x / .25, ny = y / .109, nz = z / .1225, nl = Math.hypot(nx, ny, nz) || 1;
+      const g = .3 + r() * .35;                                                         // quanto la piuma si solleva dal corpo
+      manto.push({ p: [x + nx / nl * .02, .06 + y + ny / nl * .02, z + nz / nl * .02], dir: [-1 + nx / nl * g + (r() - .5) * .25, ny / nl * (g + .2) + (r() - .5) * .2, nz / nl * (g + .2) + (r() - .5) * .25], su: [nx / nl, ny / nl + .01, nz / nl],
+        l: .12 + r() * .08, w: .038 + r() * .03, h: .016 + r() * .012, col: x > .25 ? '#2c2c35' : SCURI[Math.floor(r() * 4)] }); } });
+  piume(busto, manto);
+  u.coda = perno(-.44, .16, 0, busto);                                                // ciuffo di penne bianche
+  { const ct = []; for (let k = -5; k <= 5; k++) { const a = Math.abs(k) / 5;
+      ct.push({ p: [-.06 - (1 - a) * .05, .05 + (1 - a) * .1, k * .045], dir: [-.75, .65 - a * .25, k * .12], su: [.6, .75, 0], l: .17 + (1 - a) * .06, w: .06, h: .022, col: k % 2 ? '#f4efe2' : '#e7dfcb' }); }
+    piume(u.coda, ct);
+    [-1, 1].forEach(k => { palla(lana, .1, -.1, -.07, k * .1, u.coda, .45, .95, 1.25); pezzo(new THREE.BoxGeometry(.04, .26, .09), lana, -.12, -.24, k * .05, u.coda).rotation.x = -k * .25; });   // fiocco sulla coda, ben visibile da dietro
+    palla(lana, .05, -.12, -.07, 0, u.coda); distintivo(u.coda, -.175, -.07, 0, -Math.PI / 2, .1); }
+  distintivo(busto, .56, -.04, 0, Math.PI / 2, .115);                                  // distintivo sul petto
+  u.ali = [-1, 1].map(k => { const a = perno(.06, .2, k * .32, busto), w = [];
+    palla(nero, .19, -.07, -.08, k * .01, a, 1.5, .72, .3);
+    for (let j = 0; j < 6; j++) w.push({ p: [-.02 - j * .055, -.03 - j * .012, k * .035], dir: [-.92, -.3, k * .12], su: [0, .3, k], l: .1, w: .06, h: .02, col: SCURI[j % 4] });
+    for (let j = 0; j < 7; j++) w.push({ p: [-.2 - j * .03, -.15 + j * .018, k * .04], dir: [-.55 - j * .04, -.8 + j * .09, k * .16], su: [0, .2, k], l: .12, w: .05, h: .02, col: j % 2 ? '#f4efe2' : '#ebe4d2' });
+    piume(a, w); return a; });
+  // zampe: coscia piumata, tibia, tarso, due dita con l'unghia
+  u.gambe = [-1, 1].map(k => { const anca = perno(-.02, -.1, k * .15, c);
+    palla(nero, .16, .03, -.04, 0, anca, 1, 1.3, .95); palla(nero, .1, 0, -.2, 0, anca, 1, 1.2, 1); osso(zampa, .07, .05, .38, anca);
+    const gin = perno(0, -.38, 0, anca); palla(zampa, .056, 0, 0, 0, gin); osso(zampa, .046, .032, .42, gin);
+    const cav = perno(0, -.42, 0, gin); palla(zampa, .042, 0, 0, 0, cav); osso(zampa, .032, .03, .4, cav);
+    pezzo(new THREE.CylinderGeometry(.047, .047, .1, 12), lana, 0, -.2, 0, cav);                    // fascia colorata alla zampa
+    const piede = perno(0, -.4, 0, cav); palla(zampa, .04, 0, 0, 0, piede);
+    pezzo(new THREE.CylinderGeometry(.026, .03, .22, 8), zampa, .11, -.005, 0, piede).rotation.z = Math.PI / 2;
+    const d2 = pezzo(new THREE.CylinderGeometry(.02, .024, .13, 8), zampa, .05, -.005, k * .055, piede); d2.rotation.z = Math.PI / 2; d2.rotation.y = -k * .55;
+    pezzo(new THREE.ConeGeometry(.026, .09, 8), corno, .26, -.005, 0, piede).rotation.z = -Math.PI / 2;
+    return { anca, gin, cav, piede }; });
+  // collo snodato in sette segmenti, con collare di piume e sciarpa a due code
+  u.collo = []; let padre = perno(.42, .2, 0, busto);
+  for (let k = 0; k < 7; k++) { const seg = k ? perno(0, .12, 0, padre) : padre; u.collo.push(seg);
+    const R = j => .068 - j * .0046; pezzo(new THREE.CylinderGeometry(R(k + 1), R(k), .124, 14), pelle, 0, .06, 0, seg); palla(pelle, R(k + 1), 0, .12, 0, seg);
+    if (k === 0) { const cl = []; for (let j = 0; j < 10; j++) { const a = j / 10 * 6.28;
+        cl.push({ p: [Math.cos(a) * .075, .01, Math.sin(a) * .075], dir: [Math.cos(a) * .5, -.85, Math.sin(a) * .5], su: [Math.cos(a), .4, Math.sin(a)], l: .08, w: .045, h: .018, col: SCURI[j % 4] }); }
+      piume(seg, cl); }
+    if (k === 2) { pezzo(new THREE.TorusGeometry(.08, .04, 8, 18), lana, 0, .06, 0, seg).rotation.x = Math.PI / 2; palla(lana, .05, -.07, .04, .05, seg);
+      u.sciarpa = [0, 1].map(j => { const p = perno(-.07, .03, .05 + j * .035, seg); pezzo(new THREE.BoxGeometry(.05, .38 - j * .08, .12), lana, 0, -.19 + j * .04, 0, p); return p; }); }
+    padre = seg; }
+  // testa: occhi grandi con ciglia, becco che si apre, ciuffo
+  const t = u.testa = perno(0, .13, 0, padre);
+  palla(pelle, .088, .04, .045, 0, t, 1.35, .95, .98);
+  for (let k = 0; k < 9; k++) pezzo(new THREE.ConeGeometry(.011, .075, 4), mat(0x3a3a44), -.04 + k * .012, .125 - Math.abs(k - 4) * .004, (k % 3 - 1) * .028, t).rotation.z = .6 - k * .12;
+  const becco = mat(0xd9a05a, { shininess: 45 }), beccoScuro = mat(0xb9803f, { shininess: 45 });
+  palla(becco, .06, .165, .04, 0, t, 1.85, .3, .88); palla(beccoScuro, .03, .255, .034, 0, t, 1, .5, .8);
+  [-1, 1].forEach(k => palla(corno, .008, .2, .056, k * .02, t));
+  u.becco = perno(.09, .022, 0, t); palla(beccoScuro, .052, .075, -.004, 0, u.becco, 1.6, .22, .75);
+  u.occhi = [-1, 1].map(k => { const o = perno(.068, .068, k * .068, t);
+    palla(mat(0xffffff, { shininess: 90 }), .04, 0, 0, 0, o); palla(mat(0x6b4423, { shininess: 60 }), .029, .012, 0, k * .017, o);
+    palla(mat(0x050505, { shininess: 120, specular: 0xffffff }), .017, .02, 0, k * .029, o); palla(new THREE.MeshBasicMaterial({ color: 0xffffff }), .006, .03, .01, k * .036, o);
+    for (let j = 0; j < 3; j++) { const cg = pezzo(new THREE.ConeGeometry(.005, .05, 4), corno, -.012 + j * .016, .042, k * .028, o); cg.rotation.x = k * .9; cg.rotation.z = .3 - j * .3; }
+    return o; });
+  [-1, 1].forEach(k => palla(pelle, .043, .062, .092, k * .06, t, 1, .45, 1));
+  u.seme = r() * 10; u.and = 0; u.panico = 0; u.ritira = 0;
+  return s;
+}
+
+const PROFILI = { custode: [[.168, 0], [.2, .07], [.207, .17], [.19, .3], [.212, .44], [.2, .52], [.1, .565], [.066, .6]],
+                  ladro: [[.148, 0], [.152, .1], [.146, .25], [.172, .42], [.176, .5], [.09, .55], [.06, .585]] };
+function modPersona(divisa, scuro, eLadro) {
+  const p = new THREE.Group(), u = p.userData;
+  const stoffa = mat(divisa, { shininess: 10, side: THREE.DoubleSide }), buia = mat(scuro, { shininess: 14 }), pelle = mat(0xe8b796, { shininess: 12 }), cuoio = mat(0x0d0d10, { shininess: 80, specular: 0x777777 });
+  const ottone = mat(0xd9b45a, { shininess: 100, specular: 0xfff0b0 }), bianco = mat(0xf2f2ee, { shininess: 30 });
+  const maglia = eLadro ? mat(0xffffff, { side: THREE.DoubleSide, map: trama(64, 64, x => { for (let k = 0; k < 8; k++) { x.fillStyle = k % 2 ? '#ecebe6' : '#17171b'; x.fillRect(0, k * 8, 64, 8); } }) }) : stoffa;
+  const c = u.corpo = perno(0, .93, 0, p);
+  palla(buia, .17, 0, .02, 0, c, .8, .72, 1.06);
+  const busto = u.busto = perno(0, .08, 0, c);
+  pezzo(new THREE.LatheGeometry((eLadro ? PROFILI.ladro : PROFILI.custode).map(q => new THREE.Vector2(q[0], q[1])), 24), maglia, 0, 0, 0, busto).scale.set(.74, 1, 1.08);   // giacca
+  palla(maglia, .2, 0, .5, 0, busto, .74, .4, 1.22);
+  pezzo(new THREE.CylinderGeometry(.055, .062, .1, 12), pelle, 0, .61, 0, busto);
+  if (!eLadro) {
+    pezzo(new THREE.CylinderGeometry(.176, .176, .055, 20), cuoio, 0, .03, 0, busto).scale.set(.77, 1, 1.1); pezzo(new THREE.BoxGeometry(.02, .05, .06), ottone, .138, .03, 0, busto);   // cintura e fibbia
+    [-1, 1].forEach(k => { pezzo(new THREE.BoxGeometry(.02, .05, .07), bianco, .07, .575, k * .04, busto).rotation.x = k * .5; });                                  // colletto
+    pezzo(new THREE.BoxGeometry(.012, .2, .035), buia, .156, .43, 0, busto).rotation.z = .08;                                                                       // cravatta
+    for (let k = 0; k < 3; k++) palla(ottone, .014, .152 - k * .003, .3 - k * .09, 0, busto);                                                                        // bottoni
+    pezzo(new THREE.BoxGeometry(.012, .07, .09), mat(scuro, { shininess: 4 }), .146, .4, -.11, busto);                                                              // taschino
+    pezzo(new THREE.CylinderGeometry(.032, .032, .01, 5), ottone, .152, .42, .11, busto).rotation.z = Math.PI / 2;                                                  // distintivo a stella
+    [-1, 1].forEach(k => { pezzo(new THREE.BoxGeometry(.11, .018, .1), buia, 0, .578, k * .2, busto); pezzo(new THREE.BoxGeometry(.11, .02, .015), ottone, 0, .58, k * .245, busto); });   // spalline
+    u.chiavi = perno(.02, 0, .195, busto); pezzo(new THREE.TorusGeometry(.03, .006, 6, 14), ottone, 0, -.03, 0, u.chiavi);                                          // mazzo di chiavi alla cintura
+    [-1, 0, 1].forEach(j => { pezzo(new THREE.BoxGeometry(.012, .07, .004), mat(0xb9b9c2, { shininess: 100 }), j * .012, -.09, 0, u.chiavi).rotation.z = j * .25; });
+  } else {                                                                                                                                                       // sacco sulle spalle
+    const juta = mat(0xb09a72, { shininess: 4 }); u.sacco = perno(-.19, .32, 0, busto);
+    palla(juta, .2, 0, 0, 0, u.sacco, .85, 1.15, 1); pezzo(new THREE.ConeGeometry(.075, .13, 10), juta, .02, .27, 0, u.sacco).rotation.z = Math.PI;
+    pezzo(new THREE.TorusGeometry(.04, .012, 6, 14), mat(0x6e5a3a), .015, .215, 0, u.sacco).rotation.x = Math.PI / 2;
+  }
+  // testa e volto
+  const t = u.testa = perno(0, .66, 0, busto);
+  palla(pelle, .125, 0, .11, 0, t, .96, 1.1, .92);
+  [-1, 1].forEach(k => palla(pelle, .03, -.005, .1, k * .115, t, .6, 1, .5));
+  palla(pelle, .026, .125, .085, 0, t, eLadro ? 1.6 : 1.15, 1, .9);
+  u.occhi = [-1, 1].map(k => { const o = perno(eLadro ? .119 : .106, .13, k * .046, t); palla(bianco, .022, 0, 0, 0, o, .55, 1, 1.15); palla(mat(0x1a1a1a, { shininess: 100 }), .011, .011, 0, 0, o); return o; });
+  [-1, 1].forEach(k => { pezzo(new THREE.BoxGeometry(.014, .011, .046), mat(0x2c1f16), eLadro ? .126 : .113, .165, k * .046, t).rotation.x = k * (eLadro ? -.4 : .25); });
+  pezzo(new THREE.BoxGeometry(.012, .009, .05), mat(0x8a3d36), .11, .045, 0, t);
+  if (!eLadro) {
+    [-1, 1].forEach(k => { palla(mat(0x3a2a1e), .03, .113, .066, k * .03, t, .5, .42, 1.25).rotation.x = k * .35; });                                            // baffi
+    pezzo(new THREE.SphereGeometry(.13, 16, 10, 0, 7, 0, 1.3), mat(0x3a2a1e), -.014, .115, 0, t);                                                                   // capelli
+    pezzo(new THREE.CylinderGeometry(.134, .132, .05, 20), buia, 0, .215, 0, t); pezzo(new THREE.CylinderGeometry(.175, .136, .06, 20), buia, 0, .268, 0, t);       // berretto
+    palla(buia, .175, 0, .297, 0, t, 1, .12, 1); pezzo(new THREE.CylinderGeometry(.1345, .1345, .014, 20), ottone, 0, .236, 0, t);
+    pezzo(new THREE.CylinderGeometry(.15, .15, .012, 18, 1, false, -Math.PI / 2 + 1, Math.PI - 2), cuoio, .05, .195, 0, t).rotation.y = Math.PI / 2;                // visiera
+    palla(ottone, .03, .135, .262, 0, t, .35, 1, .85);
+  } else {
+    pezzo(new THREE.SphereGeometry(.127, 16, 10, 0, 7, 1.75, 1.4), mat(0xb99a84, { shininess: 6 }), 0, .11, 0, t).scale.set(.97, 1.1, .93);                        // barba di tre giorni
+    pezzo(new THREE.SphereGeometry(.134, 16, 10, 0, 7, 0, 1.45), buia, 0, .125, 0, t); pezzo(new THREE.TorusGeometry(.126, .024, 8, 22), buia, 0, .15, 0, t).rotation.x = Math.PI / 2;
+    palla(buia, .035, -.02, .27, 0, t);                                                                                                                         // berretto di lana col pompon
+    pezzo(new THREE.CylinderGeometry(.1265, .1265, .05, 20, 1, true), mat(0x0a0a0c, { side: THREE.DoubleSide }), 0, .132, 0, t).scale.set(.975, 1, .94);            // mascherina
+  }
+  u.braccia = [-1, 1].map(k => { const sp = perno(0, .5, k * .258, busto);
+    palla(maglia, .064, 0, 0, 0, sp); osso(maglia, .06, .05, .3, sp);
+    const gom = perno(0, -.3, 0, sp); palla(maglia, .05, 0, 0, 0, gom); osso(maglia, .048, .04, .25, gom);
+    if (!eLadro) pezzo(new THREE.CylinderGeometry(.043, .043, .035, 12), buia, 0, -.235, 0, gom);
+    const mano = eLadro ? cuoio : pelle; palla(mano, .046, 0, -.295, 0, gom, .8, 1.15, 1); palla(mano, .018, .03, -.28, 0, gom);
+    return { sp, gom }; });
+  u.gambe = [-1, 1].map(k => { const anca = perno(0, -.02, k * .095, c);
+    osso(buia, .088, .068, .44, anca); if (!eLadro) pezzo(new THREE.BoxGeometry(.012, .42, .02), ottone, 0, -.22, k * .08, anca);                                  // banda dei pantaloni
+    const gin = perno(0, -.44, 0, anca); palla(buia, .066, 0, 0, 0, gin); osso(buia, .062, .05, .41, gin);
+    pezzo(new THREE.BoxGeometry(.2, .07, .1), cuoio, .04, -.44, 0, gin); palla(cuoio, .052, .14, -.435, 0, gin, 1.2, .75, .95);
+    pezzo(new THREE.BoxGeometry(.27, .018, .105), mat(eLadro ? 0xe8e8e8 : 0x2a2a2a), .055, -.478, 0, gin);                                                        // suola
+    return { anca, gin }; });
+  if (eLadro) { const b = u.bottino = perno(.05, .98, 0, busto);
+    u.corniceB = pezzo(new THREE.BoxGeometry(.07, .8, 1.06), mat(0xffffff), 0, 0, 0, b);
+    u.telaB = new THREE.Mesh(new THREE.PlaneGeometry(.94, .7), mat(0xffffff, { emissive: 0xffffff, emissiveIntensity: .25 }));
+    u.telaB.rotation.y = -Math.PI / 2; u.telaB.position.x = -.04; b.add(u.telaB); }
+  else { const pila = perno(0, -.3, 0, u.braccia[1].gom);                                              // torcia nella mano destra
+    pezzo(new THREE.CylinderGeometry(.026, .026, .2, 10), cuoio, 0, 0, 0, pila); pezzo(new THREE.CylinderGeometry(.045, .028, .07, 12), mat(0x8c8c94, { shininess: 100 }), 0, -.13, 0, pila);
+    const lente = new THREE.Mesh(new THREE.CircleGeometry(.04, 14), new THREE.MeshBasicMaterial({ color: 0xfff6d8 })); lente.rotation.x = Math.PI / 2; lente.position.y = -.167; pila.add(lente); }
+  u.and = 0; u.eLadro = eLadro; u.seme = Math.random() * 10;
+  return p;
+}
+// cancelli, transenne da museo, chiave e mangime
+const ARREDI = { cancelli: [], transenne: [], esche: [] };
+{ const ferro = mat(0x1b1b20, { shininess: 60, specular: 0x777777 }), ottone = mat(0xc9a24e, { shininess: 100, specular: 0xfff0b0 }), velluto = mat(0x8c1c2a, { shininess: 4 });
+  PASSAGGI.forEach(tx => {
+    const c = new THREE.Group(); c.position.set(tx + .5, 0, 8); scena.add(c);
+    for (let k = 0; k < 10; k++) { pezzo(new THREE.CylinderGeometry(.028, .028, 2.75, 8), ferro, 0, 1.42, -.81 + k * .18, c); pezzo(new THREE.ConeGeometry(.05, .16, 6), ferro, 0, 2.87, -.81 + k * .18, c); }
+    [.22, 1.4, 2.62].forEach(y => pezzo(new THREE.BoxGeometry(.07, .07, 1.8), ferro, 0, y, 0, c));
+    pezzo(new THREE.BoxGeometry(.14, .22, .2), ottone, 0, 1.25, 0, c); c.visible = false; ARREDI.cancelli.push(c);
+    const t = new THREE.Group(); t.position.set(tx + .5, 0, 8); scena.add(t);
+    [-.72, .72].forEach(z => { pezzo(new THREE.CylinderGeometry(.17, .19, .05, 20), ottone, 0, .025, z, t); pezzo(new THREE.CylinderGeometry(.03, .03, .95, 12), ottone, 0, .5, z, t); palla(ottone, .06, 0, 1, z, t); });
+    [.9, .55].forEach(y => pezzo(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(0, y, -.72), new THREE.Vector3(0, y - .3, 0), new THREE.Vector3(0, y, .72)), 20, .035, 8), velluto, 0, 0, 0, t));
+    t.visible = false; ARREDI.transenne.push(t); });
+  const oroVivo = mat(0xffd76a, { emissive: 0xc9962a, emissiveIntensity: .7, shininess: 100 }), k = ARREDI.chiave = new THREE.Group(); scena.add(k);
+  pezzo(new THREE.TorusGeometry(.11, .03, 8, 20), oroVivo, 0, .2, 0, k); pezzo(new THREE.BoxGeometry(.045, .34, .045), oroVivo, 0, -.07, 0, k);
+  pezzo(new THREE.BoxGeometry(.11, .045, .04), oroVivo, .06, -.2, 0, k); pezzo(new THREE.BoxGeometry(.08, .045, .04), oroVivo, .045, -.12, 0, k);
+  ARREDI.luceChiave = new THREE.PointLight(0xffd070, 0, 3.5); scena.add(ARREDI.luceChiave);
+  const chicco = mat(0xe8c14a, { emissive: 0x6a5210, emissiveIntensity: .6 }), r = rng(21);
+  for (let j = 0; j < 4; j++) { const e = new THREE.Group(); scena.add(e); e.visible = false; ARREDI.esche.push(e);
+    for (let i = 0; i < 16; i++) { const a = r() * 6.28, d = r() * .22; palla(chicco, .022 + r() * .012, Math.cos(a) * d, .02, Math.sin(a) * d, e); } } }
+let dinamici = null, camere = [];
+const M = { custodi: [], struzzi: [], ladri: [] };
+function costruisci() {
+  if (dinamici) scena.remove(dinamici);
+  dinamici = new THREE.Group(); scena.add(dinamici);
+  M.custodi = custodi.map(c => { const m = modPersona(c.divisa, c.scuro, false); dinamici.add(m);
+    const t = new THREE.SpotLight(0xfff2d0, 1.25, 18, .56, .6, 1.4); t.castShadow = true; t.shadow.mapSize.set(1024, 1024);
+    t.shadow.camera.near = .3; t.shadow.camera.far = 18; t.shadow.bias = -.002; dinamici.add(t, t.target);
+    const alone = new THREE.PointLight(0xffe2c4, .3, 5); dinamici.add(alone);
+    m.userData.torcia = t; m.userData.alone = alone; return m; });
+  M.struzzi = struzzi.map(s => { const m = modStruzzo(s.q.colore, s.q.i); m.rotation.y = -s.ang; dinamici.add(m); return m; });
+  M.ladri = [0, 1].map(() => { const m = modPersona('#18181c', '#0c0c10', true); m.visible = false; dinamici.add(m); return m; });
+  M.luciEroi = ruolo === 'struzzo' ? eroi.map(() => { const l = new THREE.PointLight(0xc4d2ff, .8, 8, 1.2); dinamici.add(l); return l; }) : [];   // un po' di chiaro di luna intorno a chi gioca da struzzo
+  camere = eroi.map(() => { const k = new THREE.PerspectiveCamera(66, 1.5, .1, 60); k.userData.pronta = false; return k; });
+  $('radar').className = eroi.length > 1 ? 'centro' : '';
+  $('fiati').innerHTML = eroi.map((e, i) => '<div class="fiato" style="left:' + (eroi.length > 1 ? 25 + i * 50 : 50) + '%"><i></i></div>').join('');
+}
+const muro = (px, py) => { const tx = Math.floor(px / T), ty = Math.floor(py / T);
+  return tx < 0 || ty < 0 || tx >= MW || ty >= MH || mappa[ty][tx] === 1; };
+const versoAng = (a, b, k) => { let d = (b - a) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return a + d * k; };
+function andatura(m, o) {                                  // 0 = fermo, 1 = in movimento (sfumato)
+  const u = m.userData, ora = performance.now(), dt = Math.max(.001, (ora - (u.t0 || ora)) / 1000); u.t0 = ora;
+  const v = u.px === undefined ? 0 : Math.hypot(o.x - u.px, o.y - u.py) / dt; u.px = o.x; u.py = o.y;
+  u.vel = (u.vel || 0) * .75 + Math.min(400, v) * .25; u.and += ((u.vel > 12 ? 1 : 0) - u.and) * .2; return u.and;
+}
+function posaPersona(m, o, ang, giro) {
+  const u = m.userData, w = andatura(m, o), f = o.fase, t = performance.now() / 1000;
+  m.position.set(o.x * U, 0, o.y * U); m.rotation.y = giro ? versoAng(m.rotation.y, -ang, .25) : -ang;
+  const carico = u.eLadro && o.q.inMano, ruba = u.eLadro && o.stato === 'ruba';
+  const furtivo = u.eLadro && o.stato === 'va' ? 1 : 0, corsa = u.eLadro && o.stato === 'fugge' ? 1 : 0;
+  const A = (.5 + corsa * .3) * w, piega = furtivo * .35;
+  u.gambe.forEach((g, k) => { const ph = f + k * Math.PI, sw = Math.max(0, Math.cos(ph));
+    g.anca.rotation.z = A * Math.sin(ph) + piega; g.gin.rotation.z = -(.12 + .95 * sw) * w * (1 + corsa * .4) - piega * 1.9; });
+  u.corpo.position.y = .93 - Math.abs(Math.sin(f)) * .035 * w - piega * .12 + Math.sin(t * 1.8) * .004;
+  u.busto.rotation.z = -(.05 * w + furtivo * .32 + corsa * .22); u.busto.rotation.y = Math.sin(f) * .12 * w;
+  u.testa.rotation.z = furtivo * .25 + corsa * .12;
+  u.testa.rotation.y = furtivo ? Math.sin(t * 1.3) * .5 : u.eLadro ? 0 : (1 - w) * Math.sin(t * .55 + u.seme) * .3;             // il ladro si guarda le spalle; il custode, da fermo, si guarda intorno
+  const batti = (t * .37 + u.seme) % 1 < .04; u.occhi.forEach(o => { o.scale.y = batti ? .12 : 1; });
+  if (u.chiavi) u.chiavi.rotation.z = Math.sin(f) * .5 * w;
+  u.braccia.forEach((b, k) => { const ph = f + k * Math.PI; b.sp.rotation.x = 0;
+    if (carico) { b.sp.rotation.z = 2.75; b.sp.rotation.x = (k ? -.2 : .2); b.gom.rotation.z = .25; }
+    else if (ruba) { b.sp.rotation.z = 1.9 + Math.sin(t * 9 + k * 2) * .18; b.gom.rotation.z = .5; }
+    else if (!u.eLadro && k === 1) { b.sp.rotation.z = .3 + Math.sin(f * 2) * .02 * w; b.gom.rotation.z = 1.2; }          // braccio con la torcia
+    else { b.sp.rotation.z = -A * .85 * Math.sin(ph) + furtivo * .4; b.gom.rotation.z = .18 + .3 * w + furtivo * .7 + corsa * .8; } });
+}
+const COLLO = [-1.0, .17, .25, .25, .2, .13, .05], COLLO_TESO = [-1.25, .04, .08, .1, .1, .08, .05];
+function posaStruzzo(m, s) {
+  const u = m.userData, w = andatura(m, s), f = s.fase, t = performance.now() / 1000 + u.seme;
+  const corre = Math.min(1, Math.max(0, (u.vel - 70) / 60));
+  u.panico += ((s.scatto > 0 || s.turbo > 0 ? 1 : 0) - u.panico) * .2;
+  m.position.set(s.x * U, s.salto || 0, s.y * U); m.rotation.y = versoAng(m.rotation.y, -(s.giocatore || s.vista === undefined ? s.ang : s.vista), s.giocatore ? .6 : .2); m.scale.setScalar(s.scala || 1);
+  { const ha = -m.rotation.y, hx = Math.cos(ha), hy = Math.sin(ha); let spazio = 1.45;                 // quanto spazio c'è davanti al petto prima di un muro
+    for (let q = .3; q < 1.45; q += .1) if (muro(s.x + hx * q * T, s.y + hy * q * T) || muro(s.x + (hx * q - hy * .22) * T, s.y + (hy * q + hx * .22) * T) || muro(s.x + (hx * q + hy * .22) * T, s.y + (hy * q - hx * .22) * T)) { spazio = q; break; }
+    const meta = Math.min(1, Math.max(0, (1.45 - spazio) / .75)); u.ritira += (meta - u.ritira) * (meta > u.ritira ? .5 : .15); }   // si ritrae in fretta, si distende piano
+  const A = (.38 + corre * .3) * w, becca = s.statua ? .95 : s.mangia ? .5 + .45 * Math.sin(t * 7) : s.attenti > 0 ? 0 : (1 - w) * Math.max(0, Math.sin(t * .35) - .9) * 9;      // ogni tanto becca per terra
+  u.gambe.forEach((g, k) => { const ph = f + k * Math.PI, sw = Math.max(0, Math.cos(ph));
+    g.anca.rotation.z = .7 + A * Math.sin(ph); g.gin.rotation.z = -1.3 - (.55 + corre * .3) * sw * w; g.cav.rotation.z = .75 + (.75 + corre * .2) * sw * w - A * Math.sin(ph) * .3;
+    g.piede.rotation.z = -(g.anca.rotation.z + g.gin.rotation.z + g.cav.rotation.z) - sw * w * .7; });
+  u.corpo.position.y = 1.05 + Math.abs(Math.sin(f)) * .05 * w - becca * .05; u.corpo.rotation.z = -corre * .12 + Math.sin(f * 2) * .02 * w;
+  const dondolo = Math.sin(f * 2) * .1 * w, guarda = s.attenti > 0 || s.mangia || s.statua ? 0 : (1 - w) * Math.sin(t * .6) * .6; let somma = 0;
+  u.collo.forEach((seg, k) => { seg.rotation.z = COLLO[k] * (s.attenti > 0 ? .55 : 1) + (COLLO_TESO[k] - COLLO[k]) * corre * (1 - u.ritira) + (k === 0 ? u.ritira * 1.4 + dondolo - becca * .9 * (1 - u.ritira * .6) : -dondolo * .25 - becca * .24);
+    seg.rotation.y = k > 1 ? guarda / 4 : 0; somma += seg.rotation.z; });
+  u.testa.rotation.z = -somma * .85 - becca * .5;
+  u.ali.forEach((a, k) => { a.rotation.x = (k ? -1 : 1) * (corre * .3 + u.panico * (.9 + Math.sin(t * 26) * .3)); });
+  const batti = (t * .41) % 1 < .045 || s.statua; u.occhi.forEach(o => { o.scale.y = batti ? .12 : 1; });                       // battito di ciglia (da statua li tiene chiusi)
+  u.becco.rotation.z = -(u.panico * (.35 + .25 * Math.sin(t * 28)) + (s.mangia ? .25 + .2 * Math.sin(t * 14) : 0));              // becco aperto quando strilla o mangia
+  u.coda.rotation.z = Math.sin(f * 2) * .07 * w + corre * .2 + Math.sin(t * 1.3) * .03;
+  u.sciarpa.forEach((p, k) => { p.rotation.z = -(.15 + corre * .9 + w * .25) + Math.sin(t * 6 + k * 1.3) * (.06 + w * .12); });   // le code della sciarpa svolazzano
+}
+let composer = null, passoScena = null, finale = null;
+try {
+  composer = new THREE.EffectComposer(rend, new THREE.WebGLMultisampleRenderTarget(8, 8, { type: THREE.HalfFloatType, format: THREE.RGBAFormat }));
+  passoScena = new THREE.RenderPass(scena, null); composer.addPass(passoScena);
+  composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(8, 8), .42, .7, .78));
+  finale = new THREE.ShaderPass({ uniforms: { tDiffuse: { value: null }, t: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform sampler2D tDiffuse; uniform float t; varying vec2 vUv;
+      void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb; c = pow(max(c, 0.0), vec3(1.0 / 2.2));
+        float d = distance(vUv, vec2(.5)); c *= mix(1.0, smoothstep(.85, .28, d), .5);
+        c += (fract(sin(dot(vUv * 913.0 + t, vec2(12.9898, 78.233))) * 43758.5453) - .5) * .028;
+        gl_FragColor = vec4(c, 1.0); }` });
+  composer.addPass(finale);
+} catch (e) { composer = null; }
+let lw = 0, lh = 0;
+function disegna() {
+  const w = cv.clientWidth, h = cv.clientHeight; if (!w || !h || !dinamici) return;
+  if (w !== lw || h !== lh) { rend.setSize(w, h, false); if (composer) composer.setSize(w, h); lw = w; lh = h; }
+  const lamp = Math.floor(performance.now() / 180) % 2, acceso = luci > 0 ? Math.min(1, luci * 2) : 0, ts = performance.now() / 1000, daStruzzo = ruolo === 'struzzo';
+  const alba = Math.min(1, Math.max(0, (tempo / DURATA - 0.75) * 4));
+  ambiente.intensity = .26 + acceso * .75 + alba * .3 + (daStruzzo ? .1 : 0) + (film ? .2 : 0); ambiente.color.copy(NOTTE).lerp(ALBA, alba);
+
+  quadri.forEach((q, i) => { const o = Q3[i], via = q.rubato || q.inMano, lq = ladri.find(l => l.q === q && l.stato === 'ruba'), sotto = !!lq;
+    if (o.arte !== q.arte) vesti(o, q.arte);
+    o.tela.visible = !via; o.vuoto.visible = via;
+    if (sotto && lamp) o.filetto.material.color.setHex(0xffffff); else o.filetto.material.color.copy(o.tinta);
+    o.glow.material.opacity = via ? .12 : daStruzzo ? (visite.has('q' + i) ? .22 : .55 + .3 * Math.sin(ts * 3 + i)) : q === vicino ? .85 : .45;   // da struzzo: le opere ancora da vedere pulsano
+    o.barra.visible = !!sotto; if (sotto) { o.barra.position.y = -o.h / 2 - .45; o.barra.scale.set(Math.max(.01, o.w * lq.t / TEMPO_FURTO), .1, .04); }
+    if (daStruzzo) { o.anello.visible = eroi.some(s => s.q === q && !s.aCasa); o.anello.material.opacity = visite.size >= L.opere ? .6 + .4 * Math.sin(ts * 6) : .45; }
+    else { o.anello.visible = !q.rubato; o.anello.material.opacity = q.rientrato ? .2 : .95; }
+    o.segno.visible = o.anello.visible; o.segno.material.opacity = Math.min(1, o.anello.material.opacity + .05); o.simbolo.visible = !q.rubato;
+    o.faro.intensity = q.rubato ? .12 : q.rientrato ? .9 : .65; });
+  DECOR.forEach((d, j) => { if (d.arte && d.o.arte !== d.arte) { vesti(d.o, d.arte); d.o.gph.visible = true; }
+    d.o.glow.material.opacity = daStruzzo ? (visite.has('d' + j) ? .22 : .55 + .3 * Math.sin(ts * 3 + j)) : d === vicinoD ? .85 : .45; });
+
+  struzzi.forEach((s, i) => { const m = M.struzzi[i]; m.visible = !s.q.rientrato; if (m.visible) { posaStruzzo(m, s); if (s.inv > 0 && lamp && stato === 'gioco') m.visible = false; } });
+  M.luciEroi.forEach((l, k) => l.position.set(eroi[k].x * U, 2.7, eroi[k].y * U));
+  custodi.forEach((c, i) => { const m = M.custodi[i], dx = Math.cos(c.ang), dz = Math.sin(c.ang); posaPersona(m, c, c.ang, !!c.auto);
+    const t = m.userData.torcia; t.position.set(c.x * U + dx * .5 - dz * .26, 1.14, c.y * U + dz * .5 + dx * .26); t.target.position.set(c.x * U + dx * 7, .75, c.y * U + dz * 7);
+    m.userData.alone.position.set(c.x * U - dx * .5, 2.1, c.y * U - dz * .5); });
+  M.ladri.forEach((m, k) => { const l = ladri[k]; m.visible = !!l; if (!l) { m.userData.px = undefined; return; }
+    posaPersona(m, l, l.ang, true); const u = m.userData; u.bottino.visible = l.q.inMano;
+    if (l.q.inMano) { u.corniceB.material.color.set(l.q.colore); const t = Q3[l.q.i].tela.material.map;
+      if (u.telaB.material.map !== t) { u.telaB.material.map = u.telaB.material.emissiveMap = t; u.telaB.material.needsUpdate = true; } } });
+  PASSAGGI.forEach((tx, k) => { ARREDI.cancelli[k].visible = !!cancello && !cancello.aperto && cancello.tx === tx; ARREDI.transenne[k].visible = transenne.some(b => b.tx === tx); });
+  ARREDI.chiave.visible = !!chiave && !chiave.presa;
+  if (ARREDI.chiave.visible) { ARREDI.chiave.position.set(chiave.x * U, 1 + Math.sin(ts * 2) * .08, chiave.y * U); ARREDI.chiave.rotation.y = ts * 2; }
+  ARREDI.luceChiave.intensity = ARREDI.chiave.visible ? 1 : 0; ARREDI.luceChiave.position.copy(ARREDI.chiave.position);
+  ARREDI.esche.forEach((m, k) => { const e = esche[k]; m.visible = !!e; if (e) { m.position.set(e.x * U, 0, e.y * U); m.scale.setScalar(Math.min(1, e.t / 2)); } });
+  const ul = lampi[lampi.length - 1];
+  if (ul) { lampo.color.set(ul.c); lampo.position.set(ul.x * U, 1.6, ul.y * U); lampo.intensity = (1 - ul.t / .8) * 4; } else lampo.intensity = 0;
+
+  eroi.forEach((c, i) => { const k = camere[i], q = inquadra[i], dx = Math.cos(c.ang), dz = Math.sin(c.ang), oriz = q.dist * Math.cos(q.passo); let d = .4;
+    while (d < oriz && !muro(c.x - dx * (d + .4) * T, c.y - dz * (d + .4) * T)) d += .15;                  // un muro alle spalle avvicina la telecamera, e la fa salire
+    V.set(c.x * U - dx * d, Math.min(ALT - .3, 1.3 + q.dist * Math.sin(q.passo) + (oriz - d) * .32), c.y * U - dz * d);
+    if (!k.userData.pronta) { k.position.copy(V); k.userData.pronta = true; } else k.position.lerp(V, mouseDentro || sguardo ? .5 : .2);
+    const av = 2.4 - q.passo * 2; k.lookAt(c.x * U + dx * av, 1.45 - q.passo * .6, c.y * U + dz * av);
+    const b = $('fiati').children[i], f = c.fiato === undefined ? 1 : c.fiato;                              // barra del fiato
+    if (b) { b.style.opacity = f < .995 && stato === 'gioco' ? 1 : 0; b.firstChild.style.width = f * 100 + '%'; b.className = 'fiato' + (c.affanno ? ' affanno' : ''); } });
+  if (film) { camere[0].position.set(film.cam[0], film.cam[1], film.cam[2]); camere[0].lookAt(film.look[0], film.look[1], film.look[2]); }
+  if (camere.length === 1) { rend.setScissorTest(false); rend.setViewport(0, 0, w, h); camere[0].aspect = w / h; camere[0].updateProjectionMatrix();
+    if (composer && !salva.semplice) { try { passoScena.camera = camere[0]; finale.uniforms.t.value = performance.now() % 1000 / 1000; composer.render(); }
+      catch (e) { composer = null; rend.setRenderTarget(null); rend.render(scena, camere[0]); } }
+    else rend.render(scena, camere[0]); }
+  else camere.forEach((k, i) => { const x0 = i * w / 2; rend.setScissorTest(true); rend.setViewport(x0, 0, w / 2, h); rend.setScissor(x0 + i, 0, w / 2 - 1, h);
+    k.aspect = w / 2 / h; k.updateProjectionMatrix(); rend.render(scena, k); });
+  radar(lamp);
+}
+/* minimappa */
+const gr = $('radar').getContext('2d');
+function radar(lamp) {
+  const k = .25; gr.clearRect(0, 0, 240, 160);
+  for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const v = mappa[y][x];
+    gr.fillStyle = v === 1 ? 'rgba(10,10,20,.9)' : v === 2 ? 'rgba(122,46,57,.8)' : 'rgba(150,140,170,.28)'; gr.fillRect(x * 10, y * 10, 10, 10); }
+  gr.fillStyle = '#7cffb2'; PORTE.forEach(p => gr.fillRect(p.wx ? 230 : 6, 72, 4, 16));
+  const daStruzzo = ruolo === 'struzzo';
+  if (daStruzzo) { DECOR.forEach((d, j) => { gr.fillStyle = visite.has('d' + j) ? 'rgba(255,255,255,.22)' : '#d9b45a'; gr.fillRect(d.x * k - 2.5, d.by * k - 2.5, 5, 5); });
+    custodi.forEach(c => { gr.fillStyle = c.statoG === 'insegue' ? 'rgba(255,80,80,.32)' : 'rgba(255,240,180,.2)'; gr.beginPath(); gr.moveTo(c.x * k, c.y * k); gr.arc(c.x * k, c.y * k, 62, c.ang - .75, c.ang + .75); gr.closePath(); gr.fill(); }); }
+  for (const q of quadri) { if (q.rubato) continue; const sotto = ladri.some(l => l.q === q && (l.stato === 'ruba' || l.stato === 'porta'));
+    gr.fillStyle = sotto && lamp ? '#ff2d2d' : q.colore; gr.globalAlpha = q.inMano ? .3 : daStruzzo && visite.has('q' + q.i) ? .3 : 1; gr.fillRect(q.x * k - 12, q.y * k - 3, 24, 6); gr.globalAlpha = 1;
+    if (daStruzzo && !eroi.some(s => s.q === q)) continue;
+    gr.strokeStyle = gr.fillStyle = q.colore; gr.lineWidth = 1.5; gr.globalAlpha = q.rientrato ? .3 : 1; gr.beginPath(); gr.arc(q.x * k, q.by * k, 8.5, 0, 7); gr.stroke(); simbolo(gr, q.i, q.x * k, q.by * k, 3.4); gr.fill(); gr.globalAlpha = 1; }
+  for (const s of struzzi) if (!s.q.rientrato) { gr.fillStyle = s.q.colore; simbolo(gr, s.q.i, s.x * k, s.y * k, 5); gr.fill();
+    gr.strokeStyle = '#000'; gr.lineWidth = 1.2; gr.stroke();
+    if (s.giocatore) { gr.strokeStyle = '#fff'; gr.lineWidth = 1.5; gr.beginPath(); gr.arc(s.x * k, s.y * k, 8.5, 0, 7); gr.moveTo(s.x * k + Math.cos(s.ang) * 8.5, s.y * k + Math.sin(s.ang) * 8.5); gr.lineTo(s.x * k + Math.cos(s.ang) * 13, s.y * k + Math.sin(s.ang) * 12); gr.stroke(); } }
+  for (const l of ladri) if ((luci > 0 || l.stato === 'ruba' || l.stato === 'porta') && lamp) { gr.fillStyle = '#ff2d2d'; gr.fillRect(l.x * k - 4, l.y * k - 4, 8, 8); }
+  if (cancello && !cancello.aperto) { gr.fillStyle = '#e8e8f0'; gr.fillRect(cancello.tx * 10 + 3, 70, 4, 20); }
+  for (const b of transenne) { gr.fillStyle = '#ff8c42'; gr.fillRect(b.tx * 10 + 3, 70, 4, 20); }
+  if (chiave && !chiave.presa) { gr.fillStyle = lamp ? '#ffd76a' : '#fff'; gr.beginPath(); gr.arc(chiave.x * k, chiave.y * k, 4, 0, 7); gr.fill(); }
+  for (const e of esche) { gr.fillStyle = '#e8c14a'; gr.fillRect(e.x * k - 2, e.y * k - 2, 4, 4); }
+  custodi.forEach(c => { gr.save(); gr.translate(c.x * k, c.y * k); gr.rotate(c.ang); gr.fillStyle = c.divisa; gr.strokeStyle = '#fff'; gr.lineWidth = 1.5;
+    gr.beginPath(); gr.moveTo(8, 0); gr.lineTo(-5, 5); gr.lineTo(-2, 0); gr.lineTo(-5, -5); gr.closePath(); gr.fill(); gr.stroke(); gr.restore(); });
+}
+
+/* ---------- ciclo ---------- */
+let prima = 0;
+function ciclo(t) {
+  const dt = Math.min(0.05, (t - prima) / 1000 || 0); prima = t;
+  if (stato === 'gioco') passo(dt); else if (stato === 'film') passoFilm(dt);
+  if (stato !== 'gioco' && mouseDentro) liberaMouse();
+  if (quadri) disegna();
+  requestAnimationFrame(ciclo);
+}
+
+/* ---------- comandi e schermate ---------- */
+function datiOpera(q) { return [q.autore, q.anno, q.tecnica, q.luogo].filter(Boolean).join(' · '); }
+function guarda() {
+  const v = vicino || vicinoD;
+  if (stato !== 'gioco' || !v || ruolo !== 'custode') return;
+  stato = 'vista'; $('tocchi').style.display = 'none';
+  const t = $('tela'); t.width = v.arte.width; t.height = v.arte.height; t.getContext('2d').drawImage(v.arte, 0, 0);
+  t.style.borderColor = v.colore || '#b08d3c';
+  $('tTitolo').textContent = v.titolo; $('tDati').textContent = datiOpera(v);
+  $('tNota').textContent = v.decor ? (v.testo || '') : v.rientrato ? (v.testo || 'Lo struzzo è al suo posto.') : 'Manca qualcuno… riporta lo struzzo per leggere la scheda.';
+  $('vista').classList.add('on');
+}
+function chiudi() { $('vista').classList.remove('on'); stato = 'gioco'; agganciaMouse(); }
+function nascondi() { ['soglia', 'intro', 'fine', 'catalogo', 'briefing', 'quiz'].forEach(i => $(i).classList.remove('on')); }
+function briefing(n) {
+  notte = n; const N = tabella()[n], g = modo === 1 ? '1 giocatore' : '2 giocatori'; nascondi(); stato = 'briefing';
+  $('brTitolo').textContent = 'Notte ' + (n + 1) + ' — ' + N.nome; $('brTesto').textContent = N.testo;
+  $('brDati').textContent = (ruolo === 'struzzo'
+    ? N.opere + ' opere da ammirare · ' + N.guardie + (N.guardie > 1 ? ' custodi' : ' custode')
+    : N.struzzi + ' struzzi') + ' · ' + (N.ladri ? N.ladri + (N.ladri > 1 ? ' ladri' : ' ladro') : 'nessun ladro') + (N.cancello ? ' · un cancello chiuso' : '') + ' · ' + g;
+  $('brNovita').textContent = N.novita ? 'Novità — ' + N.novita : '';
+  $('inizia').textContent = ruolo === 'struzzo' ? 'Esci dalla cornice' : 'Inizia il turno';
+  $('briefing').classList.add('on');
+}
+function avvia() { audio(); prepara(); nascondi(); stato = 'gioco'; agganciaMouse();
+  if (ruolo === 'custode' && !document.body.classList.contains('touch')) messaggio('Clic nel gioco per girare la visuale con il mouse · Shift per correre');
+  if (ruolo === 'struzzo') messaggio('Sei uscito da «' + eroi[0].q.titolo + '». Buona passeggiata!'); }
+function disegnaMenu() {
+  const daStruzzo = ruolo === 'struzzo', aperte = daStruzzo ? (salva.sbloccateS || 1) : salva.sbloccate, migliori = salva.migliori[chiaveRuolo()] || [];
+  $('r1').className = 'ruolo' + (daStruzzo ? ' sec' : ''); $('r2').className = 'ruolo' + (daStruzzo ? '' : ' sec');
+  $('m1').className = modo === 1 ? '' : 'sec'; $('m2').className = modo === 2 ? '' : 'sec';
+  const box = $('notti'); box.innerHTML = '';
+  tabella().forEach((N, i) => { const b = document.createElement('button'), v = migliori[i], aperta = i < aperte;
+    b.className = 'notte' + (aperta ? '' : ' sec'); b.disabled = !aperta;
+    const t = document.createElement('b'); t.textContent = 'Notte ' + (i + 1);
+    const n = document.createElement('span'); n.textContent = aperta ? N.nome : 'Chiusa';
+    const st = document.createElement('small'); st.textContent = v ? '★'.repeat(v.s) + '☆'.repeat(3 - v.s) + ' · ' + v.p : aperta ? '☆☆☆' : 'vinci la notte prima';
+    b.append(t, n, st); b.onclick = () => briefing(i); box.appendChild(b); });
+  $('aiuto').textContent = 'W/↑ avanti, S/↓ indietro, ←·→ o A·D per girarti, Shift per correre finché hai fiato. Un clic nel gioco aggancia il mouse: giri la visuale, A·D diventano passi laterali, la rotella avvicina o allontana, Esc lo libera. '
+    + (daStruzzo ? 'Tieni premuto E, Spazio o il tasto del mouse per fare la statua · fermati davanti a un’opera per ammirarla · corri addosso ai ladri per beccarli. In due, a schermo diviso: il primo usa WASD, E e lo Shift di sinistra; il secondo le frecce, Invio e lo Shift di destra.'
+      : 'E, Spazio o un clic per guardare un quadro · Q luci · 1 2 3 attrezzi. In due, a schermo diviso: il primo usa WASD, E, 1 2 3 e lo Shift di sinistra; il secondo le frecce, Invio, 8 9 0 e lo Shift di destra.')
+    + ' M audio sì/no · N cambia musica · G grafica semplice. Su telefono: leva in basso a sinistra per muoverti (a fondo corsa corri), trascina il dito sul gioco per guardarti intorno.';
+}
+function menu() { nascondi(); stato = 'intro'; disegnaMenu(); $('intro').classList.add('on'); }
+function entra() { audio(); if (salva.introVista) menu(); else avviaFilm(); }
+function icone() {
+  const a = $('r1').querySelector('canvas').getContext('2d');                       // il custode con la torcia
+  a.fillStyle = 'rgba(255,240,180,.4)'; a.beginPath(); a.moveTo(62, 51); a.lineTo(90, 30); a.lineTo(90, 78); a.fill();
+  a.fillStyle = '#1b2440'; a.fillRect(32, 72, 8, 16); a.fillRect(44, 72, 8, 16); a.fillStyle = '#2c3e6e'; a.fillRect(30, 40, 24, 34); a.fillRect(50, 47, 12, 6);
+  a.fillStyle = '#f0c8a0'; a.beginPath(); a.arc(42, 28, 10, 0, 7); a.fill(); a.fillStyle = '#1b2440'; a.fillRect(31, 14, 22, 9); a.fillRect(38, 21, 20, 4);
+  a.fillStyle = '#d9b45a'; a.fillRect(41, 42, 2, 26); a.fillStyle = '#9a9aa4'; a.fillRect(58, 48, 6, 5);
+  struzzo($('r2').querySelector('canvas').getContext('2d'), 36, 86, 1.45, 1, .6, '#e8202a', false);
+  const s = $('stemma').getContext('2d'), r = rng(9);                               // uno struzzo che scavalca la cornice
+  s.fillStyle = '#17233f'; s.fillRect(40, 12, 140, 104); s.fillStyle = '#fff'; for (let k = 0; k < 26; k++) { s.globalAlpha = .3 + r() * .7; s.beginPath(); s.arc(44 + r() * 132, 16 + r() * 96, .8 + r() * 1.8, 0, 7); s.fill(); }
+  s.globalAlpha = 1; s.strokeStyle = '#d9b45a'; s.lineWidth = 9; s.strokeRect(36, 8, 148, 112); s.strokeStyle = '#8a6a2a'; s.lineWidth = 2; s.strokeRect(42, 14, 136, 100);
+  struzzo(s, 118, 148, 2.2, 1, .9, '#e8202a', false);
+}
+function accendi() { if (ruolo !== 'custode' || stato !== 'gioco' || luci > 0 || ricarica > 0) return; luci = LUCI_ACCESE; SFX.luci(); messaggio('Luci accese!'); }
+function apriCatalogo() {
+  const gr = $('griglia'); gr.innerHTML = '';
+  QUADRI.forEach((q, i) => { const d = document.createElement('div');
+    if (!salva.schede[i]) { d.className = 'opera chiusa'; d.textContent = '? — riporta lo struzzo dalla sciarpa di questo colore';
+      d.style.borderTop = '6px solid ' + q.colore; }
+    else { d.className = 'opera'; d.style.borderTop = '6px solid ' + q.colore; d.appendChild(dipingi(q, i, true));
+      const t = document.createElement('i'); t.textContent = q.titolo; d.appendChild(t);
+      const s = document.createElement('small'); s.textContent = datiOpera(q); d.appendChild(s);
+      const p = document.createElement('p'); p.textContent = q.testo || 'Scheda da compilare: aggiungi anno, tecnica e testo nella lista QUADRI.'; d.appendChild(p); }
+    gr.appendChild(d); });
+  $('catalogo').classList.add('on');
+}
+
+addEventListener('keydown', e => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; tasti[k] = true; if (k === 'Shift') tasti[e.code] = true;
+  if (stato === 'quiz') { if (k === '1' || k === '2' || k === '3' || k === '4') rispondi(+k - 1); else if ((k === 'Enter' || k === ' ') && !e.repeat) { e.preventDefault(); avantiQuiz(); }
+    if (k !== 'm' && k !== 'n') return; }
+  if (k.startsWith('Arrow') || k === ' ') e.preventDefault();
+  if (k === 'e' || k === ' ' || k === 'Enter') {
+    if (e.repeat) return;
+    if (stato === 'vista') chiudi(); else if (stato === 'gioco') guarda();
+    else if (stato === 'film') fineFilm();
+    else if (k === 'Enter' && stato === 'briefing') avvia();
+    else if (k === 'Enter' && stato === 'soglia') entra();
+  }
+  if (k === 'q') accendi();
+  if (stato === 'gioco' && !e.repeat) { const due = custodi[modo === 2 ? 1 : 0];
+    if (k === '1') fischia(custodi[0]); if (k === '2') semina(custodi[0]); if (k === '3') transenna(custodi[0]);
+    if (k === '8') fischia(due); if (k === '9') semina(due); if (k === '0') transenna(due); }
+  if (k === 'g') { salva.semplice = !salva.semplice; registra(); messaggio(salva.semplice ? 'Grafica semplice' : 'Grafica completa'); }
+  if (k === 'm') muto();
+  if (k === 'n' && !e.repeat) prossimoBrano();
+  if (k === 'Escape') { if (stato === 'vista') chiudi(); if (stato === 'film') fineFilm(); $('catalogo').classList.remove('on'); }
+});
+addEventListener('keyup', e => { tasti[e.key.length === 1 ? e.key.toLowerCase() : e.key] = false; if (e.key === 'Shift') tasti[e.code] = false; });
+addEventListener('blur', () => { for (const k in tasti) tasti[k] = false; });                       // niente tasti "incollati" quando si cambia finestra
+// mouse: un clic nel gioco lo aggancia (dove il browser lo consente); altrimenti si gira tenendo premuto e trascinando
+function agganciaMouse(daClic) {
+  if (modo !== 1 || stato !== 'gioco') return; if (daClic) mouseVoluto = true;
+  if (!mouseVoluto || document.pointerLockElement === cv || !cv.requestPointerLock) return;
+  try { const pr = cv.requestPointerLock(); if (pr && pr.catch) pr.catch(mouseNegato); } catch (e) { mouseNegato(); }
+}
+function mouseNegato() { if (mouseVoluto) messaggio('Qui il mouse non si può agganciare: tieni premuto il tasto e trascina per girare la visuale'); mouseVoluto = false; }   // per esempio dentro certe pagine incorporate
+function liberaMouse() { if (document.pointerLockElement === cv) { uscitaNostra = true; document.exitPointerLock(); } }
+document.addEventListener('pointerlockchange', () => { mouseDentro = document.pointerLockElement === cv; tasti.mouse = false;
+  if (mouseDentro) { sguardo = null; messaggio('Visuale col mouse: A·D passo laterale, rotella per lo zoom, Esc per liberarlo'); }
+  else { if (!uscitaNostra && stato === 'gioco') { mouseVoluto = false; messaggio('Mouse liberato: un clic nel gioco per riprenderlo'); } uscitaNostra = false; } });
+document.addEventListener('pointerlockerror', mouseNegato);
+document.addEventListener('mousemove', e => { if (mouseDentro && Math.abs(e.movementX) < 250 && Math.abs(e.movementY) < 250) ruotaVista(0, e.movementX * .0026, e.movementY * .002); });   // gli scarti enormi sono sobbalzi del browser, non movimenti veri
+cv.addEventListener('mousedown', e => { if (e.button !== 0 || stato !== 'gioco') return; if (mouseDentro) { tasti.mouse = true; if (ruolo === 'custode') guarda(); } });
+addEventListener('mouseup', () => { tasti.mouse = false; });
+cv.addEventListener('wheel', e => { if (stato !== 'gioco') return; e.preventDefault(); const q = inquadra[0]; q.dist = Math.max(2.4, Math.min(5.2, q.dist + Math.sign(e.deltaY) * .3)); }, { passive: false });
+cv.addEventListener('pointerdown', e => { if (stato !== 'gioco') return;
+  if (e.pointerType === 'mouse') { if (e.button !== 0) return; agganciaMouse(true); if (mouseDentro) return; }
+  try { cv.setPointerCapture(e.pointerId); } catch (x) {} sguardo = { id: e.pointerId, x: e.clientX, y: e.clientY }; });
+cv.addEventListener('pointermove', e => { if (!sguardo || sguardo.id !== e.pointerId || mouseDentro) return;
+  const tocco = e.pointerType !== 'mouse'; ruotaVista(0, (e.clientX - sguardo.x) * (tocco ? .007 : .005), (e.clientY - sguardo.y) * (tocco ? .004 : .003)); sguardo.x = e.clientX; sguardo.y = e.clientY; });
+['pointerup', 'pointercancel'].forEach(n => cv.addEventListener(n, e => { if (sguardo && sguardo.id === e.pointerId) sguardo = null; }));
+// leva a schermo per i dispositivi a tocco
+{ const lv = $('leva'), pm = $('pomello'), sposta = e => { const r = lv.getBoundingClientRect(), R = r.width / 2; let x = (e.clientX - r.left - R) / (R * .78), y = (e.clientY - r.top - R) / (R * .78);
+    const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; } leva.x = Math.abs(x) < .16 ? 0 : x; leva.y = Math.abs(y) < .16 ? 0 : y; pm.style.transform = 'translate(' + x * R * .6 + 'px,' + y * R * .6 + 'px)'; };
+  lv.addEventListener('pointerdown', e => { e.preventDefault(); try { lv.setPointerCapture(e.pointerId); } catch (x) {} leva.id = e.pointerId; sposta(e); });
+  lv.addEventListener('pointermove', e => { if (leva.id === e.pointerId) sposta(e); });
+  ['pointerup', 'pointercancel'].forEach(n => lv.addEventListener(n, e => { if (leva.id === e.pointerId) { leva.id = null; leva.x = leva.y = 0; pm.style.transform = ''; } }));
+  if (TOUCH && window.matchMedia && matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+  addEventListener('pointerdown', e => { if (e.pointerType === 'touch') document.body.classList.add('touch'); }, true); }
+$('m1').onclick = () => { modo = 1; disegnaMenu(); }; $('m2').onclick = () => { modo = 2; disegnaMenu(); };
+$('r1').onclick = () => { ruolo = 'custode'; disegnaMenu(); }; $('r2').onclick = () => { ruolo = 'struzzo'; disegnaMenu(); };
+$('qzAvanti').onclick = avantiQuiz; $('entra').onclick = entra; $('salta').onclick = fineFilm; $('rivedi').onclick = () => { audio(); avviaFilm(); };
+{ const b = $('bStatua'), su = () => { tasti.statua = false; }; b.addEventListener('pointerdown', e => { e.preventDefault(); tasti.statua = true; }); ['pointerup', 'pointerleave', 'pointercancel'].forEach(n => b.addEventListener(n, su)); }
+$('inizia').onclick = avvia; $('brMenu').onclick = menu;
+$('bFischio').onclick = () => fischia(custodi[0]); $('bMangime').onclick = () => semina(custodi[0]); $('bTransenna').onclick = () => transenna(custodi[0]);
+$('menu').onclick = menu; $('chiudi').onclick = chiudi; $('guarda').onclick = guarda;
+$('bLuci').onclick = accendi; $('bMuto').onclick = () => { audio(); muto(); }; $('bBrano').onclick = prossimoBrano;
+$('apriCat').onclick = $('apriCat2').onclick = apriCatalogo; $('chiudiCat').onclick = () => $('catalogo').classList.remove('on');
+if (salva.muto) $('bMuto').textContent = '♪̸';
+icone(); disegnaMenu(); disegnaBrani();
+addEventListener('pointerdown', audio); addEventListener('keydown', audio);      // la musica parte al primo gesto
+
+prepara();
+requestAnimationFrame(ciclo);
+</script>
+</body>
+</html>

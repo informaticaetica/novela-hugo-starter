@@ -1,0 +1,202 @@
+/* Contemporary Art — veste "white cube" sopra il tema Koji.
+   Pareti bianche, testo nero, titoli grandi in carattere senza grazie, linee sottili
+   al posto di ombre e angoli arrotondati, un solo colore d'accento: il blu Klein.
+   Tutte le regole stanno sotto body.caa-veste, così disattivando il plugin torna tutto com'era. */
+
+body.caa-veste {
+	--caa-nero: #0b0b0b;
+	--caa-grigio: #6b6b6b;
+	--caa-velo: #e3e3e3;
+	--caa-blu: #002fa7;
+	background: #fff !important;
+	color: var(--caa-nero);
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+body.caa-veste ::selection { background: var(--caa-blu); color: #fff; }
+body.caa-veste a:focus-visible,
+body.caa-veste button:focus-visible,
+body.caa-veste input:focus-visible,
+body.caa-veste textarea:focus-visible { outline: 2px solid var(--caa-blu); outline-offset: 3px; }
+
+/* --- intestazione laterale: logo, motto, menu --- */
+body.caa-veste .custom-logo-link img { height: auto; max-width: 21rem; }
+/* senza logo: il nome del sito composto come un'insegna, su due righe */
+body.caa-veste .site-title {
+	font-size: 2.6rem; font-weight: 700; letter-spacing: -.035em; line-height: .96; max-width: 7.2em;
+}
+body.caa-veste .site-title a { color: var(--caa-nero); text-decoration: none; }
+body.caa-veste .site-title a:hover,
+body.caa-veste .site-title a:focus { color: var(--caa-blu); }
+@media ( min-width: 1000px ) {
+	body.caa-veste .site-title { font-size: 3.8rem; }
+}
+body.caa-veste .site-description {
+	color: var(--caa-grigio); font-size: 1.15rem; font-weight: 600; letter-spacing: .14em;
+	line-height: 1.7; max-width: 24rem; text-transform: uppercase;
+}
+body.caa-veste .site-nav li,
+body.caa-veste .mobile-menu li {
+	color: var(--caa-nero); font-size: 1.3rem; font-weight: 600; letter-spacing: .12em;
+	line-height: 1.4; margin-top: 1.05em; text-transform: uppercase;
+}
+body.caa-veste .site-nav a,
+body.caa-veste .mobile-menu li a { border-bottom: 1px solid transparent; padding-bottom: .2em; text-decoration: none; }
+body.caa-veste .site-nav a:hover,
+body.caa-veste .site-nav .current-menu-item > a,
+body.caa-veste .site-nav .current_page_item > a,
+body.caa-veste .mobile-menu li a:hover { border-bottom-color: currentColor; color: var(--caa-blu); text-decoration: none; }
+
+/* --- widget --- */
+body.caa-veste .widget-title,
+body.caa-veste .widget .wp-block-heading {
+	color: var(--caa-grigio); font-size: 1.15rem; font-weight: 600; letter-spacing: .14em;
+	margin-bottom: 1.4rem; text-transform: uppercase;
+}
+body.caa-veste .widget li { font-size: 1.4rem; line-height: 1.35; }
+body.caa-veste .widget-content a { border-bottom: 1px solid var(--caa-velo); text-decoration: none; }
+body.caa-veste .widget-content a:hover { border-bottom-color: currentColor; color: var(--caa-blu); }
+
+/* --- griglia: ogni articolo è un'opera appesa, con la sua didascalia --- */
+body.caa-veste .preview-wrapper {
+	background: transparent; border-radius: 0; border-top: 1px solid var(--caa-nero);
+	box-shadow: none; overflow: visible;
+}
+body.caa-veste .preview-image { margin-top: 1.6rem; }
+body.caa-veste .preview-image img { border-radius: 0; display: block; }
+body.caa-veste .preview-inner { display: flex; flex-direction: column; padding: 1.4rem 0 2.6rem; }
+body.caa-veste .preview .post-meta-wrapper { margin-bottom: 1rem; order: -1; }
+body.caa-veste .preview-title {
+	color: var(--caa-nero); font-size: 2.3rem; font-weight: 700; letter-spacing: -.02em;
+	line-height: 1.14; margin: 0;
+}
+body.caa-veste .preview.missing-thumbnail .preview-title { font-size: 3rem; line-height: 1.08; }   /* senza immagine il titolo fa da manifesto */
+body.caa-veste .preview-title a:hover,
+body.caa-veste .preview-title a:focus { color: var(--caa-blu); }
+body.caa-veste .post-meta {
+	color: var(--caa-grigio); font-size: 1.1rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+}
+body.caa-veste .post-meta .meta-icon,
+body.caa-veste .post-meta .post-author,
+body.caa-veste .post-meta .post-comment-link,
+body.caa-veste .preview .post-meta .post-tags { display: none; }
+body.caa-veste .post-meta a { text-decoration: none; }
+body.caa-veste .post-meta a:hover { color: var(--caa-blu); }
+
+/* --- articolo e pagina --- */
+body.caa-veste .single-container {
+	background: transparent; border-radius: 0; border-top: 1px solid var(--caa-nero);
+	box-shadow: none; overflow: visible;
+}
+body.caa-veste .post-inner { max-width: 68rem; }
+body.caa-veste .post-title,
+body.caa-veste .archive-title,
+body.caa-veste .page-title {
+	color: var(--caa-nero); font-size: 3.4rem; font-weight: 700; letter-spacing: -.03em; line-height: 1.04;
+}
+@media ( min-width: 750px ) {
+	body.caa-veste .post-title,
+	body.caa-veste .archive-title,
+	body.caa-veste .page-title { font-size: 5.2rem; }
+}
+body.caa-veste .entry-content { font-size: 1.8rem; line-height: 1.62; }
+body.caa-veste .entry-content a { color: var(--caa-blu); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .18em; }
+body.caa-veste .entry-content a:hover { text-decoration-thickness: 2px; }
+body.caa-veste .entry-content h2 {
+	border-top: 1px solid var(--caa-nero); font-size: 2.8rem; letter-spacing: -.02em;
+	line-height: 1.12; margin-top: 2.2em; padding-top: .7em;
+}
+body.caa-veste .entry-content h3 { font-size: 2.1rem; letter-spacing: -.01em; line-height: 1.2; }
+body.caa-veste .entry-content blockquote {
+	border-left: 3px solid var(--caa-blu); color: var(--caa-nero); font-size: 2.2rem; font-weight: 500;
+	line-height: 1.35; margin-left: 0; padding-left: 2rem;
+}
+body.caa-veste .entry-content img,
+body.caa-veste .entry-content figure,
+body.caa-veste .featured-media img { border-radius: 0; }
+body.caa-veste figcaption,
+body.caa-veste .entry-content figcaption,
+body.caa-veste .wp-caption-text { color: var(--caa-grigio); font-size: 1.15rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+body.caa-veste .entry-content hr { background: var(--caa-nero); border: 0; height: 1px; opacity: 1; }
+body.caa-veste .entry-content table { border-collapse: collapse; font-size: 1.5rem; }
+body.caa-veste .entry-content th,
+body.caa-veste .entry-content td { border: 0; border-bottom: 1px solid var(--caa-velo); padding: .8em .8em .8em 0; text-align: left; }
+body.caa-veste .entry-content th { border-bottom-color: var(--caa-nero); font-size: 1.15rem; letter-spacing: .1em; text-transform: uppercase; }
+
+/* --- pulsanti e campi: squadrati, neri, blu al passaggio --- */
+body.caa-veste button:not(.toggle):not([class*="cookieadmin"]):not(#load-more),
+body.caa-veste .faux-button,
+body.caa-veste input[type="button"],
+body.caa-veste input[type="submit"],
+body.caa-veste .entry-content .wp-block-button__link,
+body.caa-veste .entry-content .wp-block-file__button,
+body.caa-veste .wp-block-search__button {
+	background: var(--caa-nero); border: 0; border-radius: 0; color: #fff; font-size: 1.2rem;
+	font-weight: 600; letter-spacing: .12em; text-decoration: none; text-transform: uppercase;
+}
+body.caa-veste button:not(.toggle):not([class*="cookieadmin"]):not(#load-more):hover,
+body.caa-veste .faux-button:hover,
+body.caa-veste input[type="button"]:hover,
+body.caa-veste input[type="submit"]:hover,
+body.caa-veste .entry-content .wp-block-button__link:hover,
+body.caa-veste .wp-block-search__button:hover { background: var(--caa-blu); opacity: 1; }
+body.caa-veste input[type="text"],
+body.caa-veste input[type="email"],
+body.caa-veste input[type="password"],
+body.caa-veste input[type="search"],
+body.caa-veste input[type="url"],
+body.caa-veste textarea { background: #fff; border: 1px solid var(--caa-nero); border-radius: 0; box-shadow: none; }
+
+/* --- contorno: navigazione tra articoli, condivisione, piè di pagina --- */
+body.caa-veste .pagination-single a { color: var(--caa-nero); }
+body.caa-veste .pagination-single .arrow { background: transparent; border: 1px solid var(--caa-nero); border-radius: 0; }
+body.caa-veste .related-posts-title,
+body.caa-veste .jp-relatedposts-headline { color: var(--caa-grigio); font-size: 1.15rem; letter-spacing: .14em; text-transform: uppercase; }
+body.caa-veste .ssba { filter: grayscale( 1 ); opacity: .85; }
+body.caa-veste .credits { color: var(--caa-grigio); font-size: 1.1rem; letter-spacing: .12em; text-transform: uppercase; }
+
+/* --- "solo arte": via i riquadri che parlano d'altro o ripetono il menu
+       (elenchi di pagine, commenti, archivi per mese, elenco delle categorie, profili social del vecchio blog) --- */
+body.caa-solo-arte .widget:has( .wp-block-page-list ),
+body.caa-solo-arte #block-12,
+body.caa-solo-arte #block-13,
+body.caa-solo-arte .widget:has( .wp-block-latest-comments ),
+body.caa-solo-arte .widget:has( .wp-block-archives ),
+body.caa-solo-arte .widget:has( .wp-block-categories ),
+body.caa-solo-arte .widget:has( .wp-block-embed ),
+body.caa-solo-arte #block-4,
+body.caa-solo-arte #block-5,
+body.caa-solo-arte #block-6,
+body.caa-solo-arte #block-8,
+body.caa-solo-arte #block-10 { display: none; }
+
+/* --- manifesto: il logo è già in alto a sinistra, non serve ripeterlo in grande sopra il testo --- */
+body.caa-veste.page-id-34 .featured-media { display: none; }
+
+/* Stessi widget ripetuti due volte nella colonna: resta il primo. */
+body.caa-veste .sidebar-widgets .widget_search ~ .widget_search,
+body.caa-veste .sidebar-widgets .widget:has( .wp-block-latest-posts ) ~ .widget:has( .wp-block-latest-posts ) { display: none; }
+
+/* --- indice (pagina Artisti): lettere grandi, nomi in colonna, niente pallini --- */
+body.caa-veste .entry-content .caa-indice { margin-top: 5rem; }
+body.caa-veste .entry-content .caa-indice h2 {
+	border-top: 1px solid var(--caa-nero); break-after: avoid; font-size: 4.4rem; letter-spacing: -.04em;
+	line-height: 1; margin: 0 0 1.2rem; padding-top: 1rem;
+}
+body.caa-veste .entry-content .caa-indice ul {
+	break-inside: avoid; font-size: 1.7rem; line-height: 1.3; list-style: none; margin: 0 0 4rem; padding: 0;
+}
+body.caa-veste .entry-content .caa-indice li { margin: 0 0 .55em; padding: 0; }
+body.caa-veste .entry-content .caa-indice li::before { content: none; }
+@media ( min-width: 700px ) {
+	body.caa-veste .entry-content .caa-indice { column-gap: 5rem; columns: 2; }
+}
+
+/* --- due lingue: link all'altra versione in cima al testo, voce per cambiare lingua in fondo al menu --- */
+.entry-content .caa-altra-lingua {
+	font-size: 1.2rem; font-weight: 600; letter-spacing: .12em; line-height: 1.4; margin: 0 0 3.2rem; text-transform: uppercase;
+}
+body.caa-veste .entry-content .caa-altra-lingua a { text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: .15em; }
+body.caa-veste .site-nav li.caa-lingua,
+body.caa-veste .mobile-menu li.caa-lingua { color: var(--caa-grigio); margin-top: 2.6em; }
