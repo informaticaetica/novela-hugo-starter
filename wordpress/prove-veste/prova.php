@@ -1,8 +1,7 @@
 <?php
 /* php prova.php <cartella del sito di prova> [pubblico|admin|spento|una-lingua]
    Controlla che cosa mostra il plugin: a un visitatore (pubblico), al pannello di amministrazione (admin),
-   con «solo arte» spento (spento) e con «versioni inglesi separate» spenta, com'è sul sito (una-lingua).
-   Negli altri modi la spunta è accesa da sempre-attivo.php.
+   con «solo arte» spento (spento) e con «due lingue» spento (una-lingua).
    Le sigle sono quelle di installa.php: A B F articoli vecchi, C vecchio ma in «mostre», D E G nuovi,
    H I versioni inglesi di D ed E; gym pagina esclusa, info pagina italiana, about la sua versione inglese. */
 $modo                       = isset( $argv[2] ) ? $argv[2] : 'pubblico';
@@ -211,11 +210,8 @@ verifica( 'descrizione di un articolo: il riassunto, se manca', apply_filters( '
 verifica( 'descrizione di un articolo: quella scritta a mano resta', apply_filters( 'wpseo_metadesc', 'Scritta a mano' ), 'Scritta a mano' );
 wp_update_post( array( 'ID' => $I['D'], 'post_excerpt' => '' ) );
 
-/* ===== due lingue nella stessa pagina ===== */
-$parte = apply_filters( 'the_content', '<h2 class="wp-block-heading" id="italiano">Titolo</h2><div id="english" class="wp-block-group"><h2 class="wp-block-heading">Title</h2></div>' );
-verifica( 'la parte inglese dichiara la sua lingua', substr_count( $parte, 'lang="en"' ) . ( false !== strpos( $parte, '<div id="english" class="wp-block-group" lang="en">' ) ? ' sul gruppo' : '' ), '1 sul gruppo' );
 remove_all_filters( 'pre_option_caa_opzioni' );
-verifica( 'senza impostazioni salvate: versioni separate spente, il resto acceso', caa_opzione( 'bilingue' ) . caa_opzione( 'veste' ) . caa_opzione( 'solo_arte' ) . caa_opzione( 'fuori_dai_motori' ) . caa_opzione( 'logo_testo' ), '01111' );
+verifica( 'senza impostazioni salvate: tutte le spunte accese', caa_opzione( 'bilingue' ) . caa_opzione( 'veste' ) . caa_opzione( 'solo_arte' ) . caa_opzione( 'fuori_dai_motori' ) . caa_opzione( 'logo_testo' ), '11111' );
 
 echo $ko ? "\n$ko PROVE FALLITE ($modo)\n" : "\ntutte superate ($modo)\n";
 exit( $ko ? 1 : 0 );

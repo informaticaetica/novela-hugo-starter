@@ -1,8 +1,8 @@
 <?php
 /**
- * Versioni inglesi separate (spunta «bilingue», spenta finché non la si accende da Impostazioni → Contemporary Art).
+ * Due lingue (spunta «bilingue» di Impostazioni → Contemporary Art, accesa finché non la si spegne).
  *
- * A spunta accesa, la versione inglese di un articolo (o di una pagina) è un articolo a sé, con il suo indirizzo, che porta
+ * La versione inglese di un articolo (o di una pagina) è un articolo a sé, con il suo indirizzo, che porta
  * nel campo «caa_versione_inglese_di» l'ID dell'originale italiano. Da quel solo dato discende tutto il resto:
  * - gli elenchi separati: in italiano solo gli italiani; sotto /en/ (indice, categorie, tag, ricerca, feed) solo gli inglesi;
  * - i tag hreflang, la lingua dichiarata dalla pagina e l'interfaccia del tema in inglese;

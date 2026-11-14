@@ -1,7 +1,7 @@
 === Contemporary Art — veste grafica ===
 Requires at least: 5.6
 Tested up to: 6.9
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: MIT
 
 Veste "white cube" sopra il tema Koji, interruttore "solo arte", articoli in italiano e in inglese.
@@ -14,23 +14,22 @@ Cinque spunte, regolabili da Impostazioni → Contemporary Art:
 * Solo arte: nasconde da home, archivi, ricerca (anche con Relevanssi), feed, correlati (del tema e di Jetpack), «articolo precedente/successivo», indici e menu gli articoli scritti prima del 2026 (salvo quelli nelle categorie mostre, arte, artisti, opere, musei, gallerie), le categorie rimaste senza articoli visibili e le pagine del vecchio blog. Chi ha l'indirizzo esatto di un vecchio articolo lo legge ancora.
 * Nome al posto del logo: il nome del sito composto in caratteri prende il posto dell'immagine del logo (che resta salvata nel tema).
 * Fuori dai motori di ricerca: ciò che «Solo arte» nasconde riceve l'indicazione «noindex» ed esce dalla mappa del sito di Yoast SEO; gli indirizzi continuano a funzionare.
-* Versioni inglesi separate (spenta finché non la si accende: sul sito ogni articolo porta italiano e inglese nella stessa pagina): la versione inglese di un articolo o di una pagina è un contenuto a sé, abbinato all'originale italiano. In italiano si vedono solo i contenuti italiani; quelli inglesi stanno sotto /en/ (indice, categorie, tag, ricerca, feed). Le due versioni si rimandano l'una all'altra con un link in cima al testo, con la voce «English / Italiano» nel menu e, per i motori di ricerca, con i tag hreflang; le pagine inglesi dichiarano la loro lingua e mostrano l'interfaccia del tema in inglese.
+* Due lingue: la versione inglese di un articolo o di una pagina è un contenuto a sé, abbinato all'originale italiano. In italiano si vedono solo i contenuti italiani; quelli inglesi stanno sotto /en/ (indice, categorie, tag, ricerca, feed). Le due versioni si rimandano l'una all'altra con un link in cima al testo, con la voce «English / Italiano» nel menu e, per i motori di ricerca, con i tag hreflang; le pagine inglesi dichiarano la loro lingua e mostrano l'interfaccia del tema in inglese.
 
 Nelle stesse impostazioni si scrivono le due frasi (italiana e inglese) che dicono che cos'è il sito: diventano la descrizione della home per i motori di ricerca. Gli articoli senza una descrizione scritta a mano usano il riassunto.
 
-== Articoli con le due lingue nella stessa pagina ==
+== Come si abbina una versione inglese ==
 
-La parte inglese comincia dall'elemento con ancora «english» (un blocco Gruppo o un titolo): il plugin gli dichiara la lingua (lang="en").
-
-== Come si abbina una versione inglese separata ==
-
-A spunta «Versioni inglesi separate» accesa, l'articolo (o la pagina) in inglese porta nel campo personalizzato «caa_versione_inglese_di» l'ID dell'originale italiano. Il campo è registrato anche per l'API REST di WordPress: chi crea l'articolo da fuori lo passa in «meta». Basta questo: elenchi, link, menu e hreflang discendono da lì.
+L'articolo (o la pagina) in inglese porta nel campo personalizzato «caa_versione_inglese_di» l'ID dell'originale italiano. Il campo è registrato anche per l'API REST di WordPress: chi crea l'articolo da fuori lo passa in «meta». Basta questo: elenchi, link, menu e hreflang discendono da lì.
 
 La classe «caa-indice» su un blocco Gruppo compone titoli e liste come un indice a colonne (pagina Artisti).
 
 Non cancella e non modifica nessun contenuto. Disattivando il plugin il sito torna esattamente com'era.
 
 == Changelog ==
+
+= 1.5.0 =
+* Le due lingue tornano accese in partenza: ogni articolo ha la sua versione inglese separata. Tolto il supporto alle due lingue nella stessa pagina.
 
 = 1.4.0 =
 * Le versioni inglesi separate diventano una scelta, spenta in partenza: gli articoli portano le due lingue nella stessa pagina.
